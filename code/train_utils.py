@@ -101,7 +101,7 @@ def train(n_train = None, n_val = None, model_name = "distilbert-base-cased", fr
     # Tokenize the dataset with our tokenization function
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     max_length = model.config.max_position_embeddings
-    tokenize_partial = partial(tokenize, tokenizer=tokenizer, max_length=384)
+    tokenize_partial = partial(tokenize, tokenizer=tokenizer, max_length=max_length)
     tokenized_dataset = dataset.map(tokenize_partial, batched=True, remove_columns=dataset["train"].column_names)
 
 
