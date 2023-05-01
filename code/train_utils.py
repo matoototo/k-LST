@@ -2,9 +2,12 @@ from functools import partial
 
 import datasets as huggingface_datasets
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering, DefaultDataCollator, TrainingArguments, Trainer
+import torch
+from tqdm.auto import tqdm
+from update_policy import UpdatePolicy
 
 
-def load_dataset(dataset = "squad", split = None):
+def load_dataset(dataset="squad", split=None):
     dataset = huggingface_datasets.load_dataset(dataset, split=split)
     return dataset
 
@@ -56,13 +59,14 @@ def tokenize(dataset, tokenizer, max_length):
 
     return tokenized_inputs
 
+
 def freeze(model):
     # Set requires_grad to False for all parameters
     for param in model.parameters():
         param.requires_grad = False
 
 
-def unfreeze_last(model, unfreeze_n = 1):
+def unfreeze_last(model, unfreeze_n=1):
     # Unfreeze the last n layers
     if "distilbert" in model.name_or_path:
         # DistilBERT
@@ -78,7 +82,7 @@ def unfreeze_last(model, unfreeze_n = 1):
         param.requires_grad = True
 
 
-def train(n_train = None, n_val = None, model_name = "distilbert-base-cased", freeze = True, unfreeze_n = 1):
+def train(n_train=None, n_val=None, model_name="distilbert-base-cased", freeze=True, unfreeze_n=1):
     # ========= MODEL ========= #
     # Load model
     model = AutoModelForQuestionAnswering.from_pretrained(model_name)
@@ -86,7 +90,6 @@ def train(n_train = None, n_val = None, model_name = "distilbert-base-cased", fr
     if freeze:
         freeze(model)
         unfreeze_last(model, unfreeze_n=unfreeze_n)
-
 
     # ========= DATA ========= #
     dataset = load_dataset()
@@ -104,7 +107,6 @@ def train(n_train = None, n_val = None, model_name = "distilbert-base-cased", fr
     tokenize_partial = partial(tokenize, tokenizer=tokenizer, max_length=max_length)
     tokenized_dataset = dataset.map(tokenize_partial, batched=True, remove_columns=dataset["train"].column_names)
 
-
     # ========= TRAINING ========= #
     training_args = TrainingArguments(
         output_dir="results",
@@ -116,11 +118,14 @@ def train(n_train = None, n_val = None, model_name = "distilbert-base-cased", fr
         weight_decay=0.01
     )
 
+    train_dataset = tokenized_dataset["train"]
+    eval_dataset = tokenized_dataset["validation"]
+
     trainer = Trainer(
         model,
         training_args,
-        train_dataset=tokenized_dataset["train"],
-        eval_dataset=tokenized_dataset["validation"],
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         data_collator=data_collator,
         tokenizer=tokenizer
     )
@@ -130,8 +135,30 @@ def train(n_train = None, n_val = None, model_name = "distilbert-base-cased", fr
     metrics = trainer.evaluate()
     print(metrics)
 
-    trainer.train()
+    # Perform initialization and create update policy before training
+    update_policy = UpdatePolicy(model)
+    num_steps = int(training_args.num_train_epochs * train_dataset.num_rows / training_args.per_device_train_batch_size)
+    trainer.create_optimizer_and_scheduler(num_steps)
+    progress_bar = tqdm(range(num_steps))
+
+    # Perform training
+    for epoch in range(int(training_args.num_train_epochs)):
+        # Apply the update policy before each epoch
+        update_policy.apply(epoch, metrics)
+
+        for batch in train_dataset.iter(training_args.per_device_train_batch_size):
+            batch = {k: torch.tensor(v, dtype=torch.long) for k, v in batch.items()}
+            trainer.training_step(model, batch)
+            trainer.optimizer.step()
+            trainer.optimizer.zero_grad()
+            trainer.lr_scheduler.step()
+            progress_bar.update(1)
+
+        # Evaluate after each epoch
+        print(f"Evaluating epoch {epoch + 1}...")
+        metrics = trainer.evaluate()
+        print(metrics)
 
 
 if __name__ == "__main__":
-    train(5000, 500, model_name = "distilbert-base-cased", freeze=False)
+    train(5000, 500, model_name="distilbert-base-cased", freeze=False)
