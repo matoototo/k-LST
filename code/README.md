@@ -9,3 +9,7 @@ pip install -r requirements.txt
 # Deactivate virtual environment when finished
 deactivate
 ```
+# TensorBoard
+```bash
+tensorboard --logdir results/runs
+```
