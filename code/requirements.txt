@@ -1,5 +1,7 @@
-transformers~=4.28.1
-datasets~=2.12.0
+transformers
+datasets
 
-torch~=2.0.0+cu118
-tqdm~=4.65.0
+torch
+tqdm
+evaluate
+numpy
