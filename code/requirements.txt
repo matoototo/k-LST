@@ -1,7 +1,7 @@
 transformers
 datasets
-
 torch
 tqdm
 evaluate
 numpy
+tensorboard
