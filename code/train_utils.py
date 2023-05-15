@@ -1,11 +1,11 @@
-from transformers import DefaultDataCollator, Trainer
-import torch
+from torch.utils.data import DataLoader
+from transformers import Trainer, AdamW, get_scheduler, DataCollatorWithPadding
 from tqdm.auto import tqdm
 from update_policy import UpdatePolicy
-
 from config import Config
 
-def train(config : Config):
+
+def train(config: Config):
     # ========= MODEL ========= #
     # Load model and apply freezing strategy
     model = config.load_model()
@@ -13,10 +13,11 @@ def train(config : Config):
 
     # ========= DATA ========= #
     dataset = config.load_dataset()
-    data_collator = DefaultDataCollator()
 
     # Tokenize the dataset with our tokenization function
     tokenized_dataset, tokenizer = config.tokenize_dataset(dataset, model)
+    # Data collator for dynamic padding. Tokenizer itself does not pad.
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
     # ========= TRAINING ========= #
     training_args = config.load_training_args()
@@ -24,13 +25,17 @@ def train(config : Config):
     train_dataset = tokenized_dataset["train"]
     eval_dataset = tokenized_dataset["validation"]
 
+    # function called by trainer during trainer.evaluate()
+    metric_function = config.load_metric_function()
+
     trainer = Trainer(
         model,
         training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         data_collator=data_collator,
-        tokenizer=tokenizer
+        tokenizer=tokenizer,
+        compute_metrics=metric_function
     )
 
     # Perform validation before training
@@ -41,20 +46,29 @@ def train(config : Config):
     # Perform initialization and create update policy before training
     update_policy = UpdatePolicy(model)
     num_steps = int(training_args.num_train_epochs * train_dataset.num_rows / training_args.per_device_train_batch_size)
-    trainer.create_optimizer_and_scheduler(num_steps)
     progress_bar = tqdm(range(num_steps))
+    train_dataloader = DataLoader(
+        tokenized_dataset["train"], shuffle=True, batch_size=training_args.per_device_train_batch_size,
+        collate_fn=data_collator
+    )
+    optimizer = AdamW(model.parameters(), lr=training_args.learning_rate)
+    lr_scheduler = get_scheduler(
+        "linear",
+        optimizer=optimizer,
+        num_warmup_steps=0,
+        num_training_steps=num_steps,
+    )
 
     # Perform training
     for epoch in range(int(training_args.num_train_epochs)):
         # Apply the update policy before each epoch
-        update_policy.apply(epoch, metrics)
+        # update_policy.apply(epoch, metrics)
 
-        for batch in train_dataset.iter(training_args.per_device_train_batch_size):
-            batch = {k: torch.tensor(v, dtype=torch.long) for k, v in batch.items()}
+        for batch in train_dataloader:
             trainer.training_step(model, batch)
-            trainer.optimizer.step()
-            trainer.optimizer.zero_grad()
-            trainer.lr_scheduler.step()
+            optimizer.step()
+            optimizer.zero_grad()
+            lr_scheduler.step()
             progress_bar.update(1)
 
         # Evaluate after each epoch
