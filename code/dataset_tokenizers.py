@@ -5,7 +5,6 @@ def tokenize_squad(dataset, tokenizer, max_length):
         dataset["context"],
         max_length=max_length,
         truncation="only_second",
-        padding="max_length",
         return_offsets_mapping=True
     )
 
@@ -42,5 +41,15 @@ def tokenize_squad(dataset, tokenizer, max_length):
 
     tokenized_inputs["start_positions"] = start_positions
     tokenized_inputs["end_positions"] = end_positions
+
+    return tokenized_inputs
+
+
+def tokenize_sst2(dataset, tokenizer, max_length):
+    tokenized_inputs = tokenizer(
+        dataset["sentence"],
+        max_length=max_length,
+        truncation=True
+    )
 
     return tokenized_inputs

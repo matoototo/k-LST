@@ -1,17 +1,13 @@
 %YAML 1.2
 ---
 dataset:
-    name: "squad"
-    n_train: 5000
-    n_val: 500
+    name: "sst2"
 
 model:
     base_model: "distilbert-base-cased"
 
 freeze:
-    strategy: "all_but_last_n"
-    args:
-        n: 1
+    strategy: "none"
 
 train:
     weight_decay: 0.01
@@ -23,5 +19,5 @@ train:
     evaluation_strategy: "epoch"
 
 evaluate:
-    metric_function: "none"
+    metric_function: "accuracy"
 ...
