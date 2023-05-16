@@ -25,6 +25,8 @@ class Config:
         :return: transformers.PreTrainedModel
         """
         # Return a model for the task based on the config
+        if self.model["base_model"] == "t5-base":
+            return AutoModel.from_pretrained(self.model["base_model"])
         match self.dataset["name"]:
             case "squad":
                 return AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
@@ -62,7 +64,12 @@ class Config:
         tokenize_func = tokenize_func_map[self.dataset["name"]]
 
         tokenizer = AutoTokenizer.from_pretrained(self.model["base_model"])
-        max_length = model.config.max_position_embeddings
+        
+        if self.model["base_model"] == "t5-base":
+            max_length = 512
+        else:
+            max_length = model.config.max_position_embeddings
+        
         tokenize_partial = partial(tokenize_func, tokenizer=tokenizer, max_length=max_length)
         # Remove columns of the tokenized dataset that the model does not accept
         columns_to_remove = {"squad": dataset["train"].column_names, "sst2": ["idx", "sentence"]}
