@@ -53,3 +53,17 @@ def tokenize_sst2(dataset, tokenizer, max_length):
     )
 
     return tokenized_inputs
+
+
+def tokenize_sst2_t5(dataset, tokenizer, max_length):
+    tokenized_inputs = tokenizer(
+        dataset["sentence"],
+        max_length=max_length,
+        truncation=True
+    )
+
+    # Change label from 1 or 0 to tokenized "positive" or "negative"
+    tokenized_inputs["label"] = [
+        tokenizer("positive")["input_ids"] if label == 1 else tokenizer("negative")["input_ids"] for label in
+        dataset["label"]]
+    return tokenized_inputs

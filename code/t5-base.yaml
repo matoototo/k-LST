@@ -5,6 +5,7 @@ dataset:
 
 model:
     base_model: "t5-base"
+    model_type: "t5"
 
 freeze:
     strategy: "none"
@@ -12,12 +13,10 @@ freeze:
 train:
     weight_decay: 0.01
     num_train_epochs: 5
-    learning_rate: 0.00002
+    learning_rate: 0.0003
     per_device_train_batch_size: 16
     per_device_eval_batch_size: 16
     output_dir: "results"
     evaluation_strategy: "epoch"
 
-evaluate:
-    metric_function: "accuracy"
 ...

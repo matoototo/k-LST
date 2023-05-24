@@ -5,6 +5,7 @@ dataset:
 
 model:
     base_model: "distilbert-base-cased"
+    model_type: "bert"
 
 freeze:
     strategy: "none"
@@ -18,6 +19,4 @@ train:
     output_dir: "results"
     evaluation_strategy: "epoch"
 
-evaluate:
-    metric_function: "accuracy"
 ...
