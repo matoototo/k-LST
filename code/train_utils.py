@@ -1,8 +1,6 @@
-from torch.utils.data import DataLoader
-from transformers import Trainer, AdamW, get_scheduler, DataCollatorWithPadding
-from tqdm.auto import tqdm
-from update_policy import UpdatePolicy
+from transformers import Trainer, DataCollatorWithPadding
 from config import Config
+from update_policy import UpdatePolicyCallback
 
 
 def train(config: Config):
@@ -35,7 +33,8 @@ def train(config: Config):
         eval_dataset=eval_dataset,
         data_collator=data_collator,
         tokenizer=tokenizer,
-        compute_metrics=metric_function
+        compute_metrics=metric_function,
+        callbacks=[UpdatePolicyCallback(model)]
     )
 
     # Perform validation before training
@@ -43,38 +42,7 @@ def train(config: Config):
     metrics = trainer.evaluate()
     print(metrics)
 
-    # Perform initialization and create update policy before training
-    update_policy = UpdatePolicy(model)
-    num_steps = int(training_args.num_train_epochs * train_dataset.num_rows / training_args.per_device_train_batch_size)
-    progress_bar = tqdm(range(num_steps))
-    train_dataloader = DataLoader(
-        tokenized_dataset["train"], shuffle=True, batch_size=training_args.per_device_train_batch_size,
-        collate_fn=data_collator
-    )
-    optimizer = AdamW(model.parameters(), lr=training_args.learning_rate)
-    lr_scheduler = get_scheduler(
-        "linear",
-        optimizer=optimizer,
-        num_warmup_steps=0,
-        num_training_steps=num_steps,
-    )
-
-    # Perform training
-    for epoch in range(int(training_args.num_train_epochs)):
-        # Apply the update policy before each epoch
-        # update_policy.apply(epoch, metrics)
-
-        for batch in train_dataloader:
-            trainer.training_step(model, batch)
-            optimizer.step()
-            optimizer.zero_grad()
-            lr_scheduler.step()
-            progress_bar.update(1)
-
-        # Evaluate after each epoch
-        print(f"Evaluating epoch {epoch + 1}...")
-        metrics = trainer.evaluate()
-        print(metrics)
+    trainer.train()
 
 
 if __name__ == "__main__":
