@@ -8,7 +8,7 @@ def train(config: Config):
     # Load model and apply freezing and adapter strategies
     model = config.load_model()
     config.freeze_model(model)
-    model = config.add_adapters(model),
+    model = config.add_adapters(model)
     # ========= DATA ========= #
     dataset = config.load_dataset()
 
