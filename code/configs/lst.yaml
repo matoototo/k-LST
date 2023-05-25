@@ -1,7 +1,7 @@
 %YAML 1.2
 ---
 dataset:
-    name: "squad"
+    name: "sst2"
 
 model:
     base_model: "distilbert-base-cased"
