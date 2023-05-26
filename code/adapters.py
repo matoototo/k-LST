@@ -31,11 +31,11 @@ class LST(nn.Module):
         self.side_modules = nn.ModuleDict(self._create_side_modules(self._n_outputs))
         self.model_head = self._get_model_head(self.model)
                                          
-    def forward(self, *args, **kwargs):
-        self.model(*args, **kwargs) # Just to get the intermediate activations
+    def forward(self, input_ids, attention_mask, labels = None, **kwargs):
+        outputs = self.model(input_ids, attention_mask, **kwargs) # Just to get the intermediate activations
         # return self.model(*args, **kwargs)
         input = self.intermediate_activations["embeddings"]
-        output = self.side_modules["initial_downsample"](input)
+        output = self.side_modules["initial_downsample"](input) # [16]
         for i in range(self._n_outputs):
             backbone_output = self.intermediate_activations[f"backbone_{i}"][0]
             downsampled_backbone = self.side_modules[f"side_downsample_{i}"](backbone_output)
@@ -43,6 +43,12 @@ class LST(nn.Module):
             output = self.side_modules[f"ladder_block_{i}"](output)
         output = self.side_modules["side_upsample"](output)
         output = self.model_head(output)
+        output = output[:, 0, :]  # CLS token
+        if labels is not None:
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(output, labels)
+        if labels is not None:
+            return SequenceClassifierOutput(loss=loss, logits=output)
         return SequenceClassifierOutput(logits=output)
 
     def _get_model_head(self, model):
