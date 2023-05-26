@@ -9,6 +9,7 @@ from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingA
 from dataset_tokenizers import tokenize_squad, tokenize_sst2
 from freeze_strategies import all_but_last_n
 from metric_functions import compute_accuracy
+from models.lora import IA3Config, modify_with_lora
 
 
 class Config:
@@ -27,11 +28,16 @@ class Config:
         # Return a model for the task based on the config
         match self.dataset["name"]:
             case "squad":
-                return AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
+                model = AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
             case "sst2":
-                return AutoModelForSequenceClassification.from_pretrained(self.model["base_model"])
+                model = AutoModelForSequenceClassification.from_pretrained(self.model["base_model"])
             case _:
-                return AutoModel.from_pretrained(self.model["base_model"])
+                model = AutoModel.from_pretrained(self.model["base_model"])
+
+        if "modifier" in self.model and self.model["modifier"] == "ia3":
+            model = modify_with_lora(model, IA3Config())
+
+        return model
 
     def freeze_model(self, model):
         """Apply freezing strategy to model
