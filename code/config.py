@@ -9,7 +9,7 @@ from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingA
 from dataset_tokenizers import tokenize_squad, tokenize_sst2
 from freeze_strategies import all_but_last_n
 from metric_functions import compute_accuracy
-from models.lora import IA3Config, modify_with_lora
+from models.lora import IA3ConfigBERT, modify_with_lora
 
 
 class Config:
@@ -35,7 +35,7 @@ class Config:
                 model = AutoModel.from_pretrained(self.model["base_model"])
 
         if "modifier" in self.model and self.model["modifier"] == "ia3":
-            model = modify_with_lora(model, IA3Config())
+            model = modify_with_lora(model, IA3ConfigBERT())
 
         return model
 

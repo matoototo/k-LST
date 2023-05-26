@@ -3,25 +3,35 @@ import torch.nn as nn
 import torch.nn.functional as F
 import re
 
-# modify model with lora
-class LoRAConfig:
+# modify T5 with lora
+class LoRAConfigT5:
     def __init__(self):
         self.lora_scaling_rank = 1
         self.lora_rank = 4
         self.lora_init_scale = 0.01
         self.lora_modules = ".*SelfAttention|.*EncDecAttention"
         self.lora_layers = "q|k|v|o"
-        self.trainable_param_names = ".*layer_norm.*|.*lora_[ab].*"
+        # self.trainable_param_names = ".*layer_norm.*|.*lora_[ab].*"
 
-# modify model with ia3
-class IA3Config:
+# modify T0 with ia3
+class IA3ConfigT0:
     def __init__(self):
         self.lora_scaling_rank = 1
         self.lora_rank = 0
         self.lora_init_scale = 0.00
         self.lora_modules = ".*SelfAttention|.*EncDecAttention|.*DenseReluDense"
         self.lora_layers = "k|v|wi_1.*"
-        self.trainable_param_names = ".*lora_b.*"
+        # self.trainable_param_names = ".*lora_b.*"
+
+# modify BERT with ia3
+class IA3ConfigBERT:
+    def __init__(self):
+        self.lora_scaling_rank = 1
+        self.lora_rank = 0
+        self.lora_init_scale = 0.00
+        self.lora_modules = ".*attention|.*ffn"
+        self.lora_layers = "k_lin|v_lin|lin1.*" #check lin2
+        # self.trainable_param_names = ".*lora_b.*"
 
 # from https://github.com/r-three/t-few
 class LoRALinear(nn.Module):
