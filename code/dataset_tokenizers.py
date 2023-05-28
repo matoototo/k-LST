@@ -57,6 +57,8 @@ def tokenize_sst2(dataset, tokenizer, max_length):
 
 def tokenize_sst2_t5(dataset, tokenizer, max_length):
     tokenized_inputs = tokenizer(
+        # "sst2 sentence: " can be added to the beginning of sentences as in
+        # https://arxiv.org/abs/1910.10683 (Appendix D.7). This gives almost perfect results before any training.
         dataset["sentence"],
         max_length=max_length,
         truncation=True

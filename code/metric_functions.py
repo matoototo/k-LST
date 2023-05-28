@@ -14,5 +14,7 @@ def compute_metrics_sst2_bert(eval_preds):
 def compute_metrics_sst2_t5(eval_preds):
     metric = evaluate.load("accuracy")
     logits, labels = eval_preds
+    # First item of the tuple gives token scores
     predictions = np.argmax(logits[0], axis=-1)
+    # Compare the first token, which is either "positive" or "negative"
     return metric.compute(predictions=predictions[:, 0], references=labels[:, 0])

@@ -63,12 +63,12 @@ class Config:
         tokenize_func = tokenize_func_map[f"{self.dataset['name']} {self.model['model_type']}"]
 
         tokenizer = AutoTokenizer.from_pretrained(self.model["base_model"])
-        
+
         if self.model["base_model"] == "t5-base":
             max_length = 512
         else:
             max_length = model.config.max_position_embeddings
-        
+
         tokenize_partial = partial(tokenize_func, tokenizer=tokenizer, max_length=max_length)
         # Remove columns of the tokenized dataset that the model does not accept
         columns_to_remove = {"squad": dataset["train"].column_names, "sst2": ["idx", "sentence"]}
