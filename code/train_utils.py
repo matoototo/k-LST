@@ -26,6 +26,9 @@ def train(config: Config):
     # function called by trainer during trainer.evaluate()
     metric_function = config.load_metric_function()
 
+    # get optimizer & scheduler
+    optimizer = config.load_optimizer(model, train_dataset)
+
     trainer = Trainer(
         model,
         training_args,
@@ -34,7 +37,8 @@ def train(config: Config):
         data_collator=data_collator,
         tokenizer=tokenizer,
         compute_metrics=metric_function,
-        callbacks=[UpdatePolicyCallback(model)]
+        callbacks=[UpdatePolicyCallback(model)],
+        optimizers=optimizer
     )
 
     # Perform validation before training

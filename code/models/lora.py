@@ -66,9 +66,9 @@ class LoRALinear(nn.Module):
         if self.scaling_rank == 1 and self.rank == 0:
             # parsimonious implementation for ia3 and lora scaling
             if self.multi_lora_a.requires_grad:
-                hidden = F.linear((input * self.multi_lora_a.flatten()), self.weight, self.bias)
+                hidden = F.linear((input * self.multi_lora_a.flatten()), self.weight, self.bias) # learned vector for ia3
             else:
-                hidden = F.linear(input, self.weight, self.bias)
+                hidden = F.linear(input, self.weight, self.bias) # learned vector for ia3
             if self.multi_lora_b.requires_grad:
                 hidden = hidden * self.multi_lora_b.flatten()
             return hidden

@@ -10,6 +10,7 @@ from dataset_tokenizers import tokenize_squad, tokenize_sst2
 from freeze_strategies import all_but_last_n
 from metric_functions import compute_accuracy
 from models.lora import IA3ConfigBERT, modify_with_lora
+from optimizer import get_optimizer, get_scheduler
 
 
 class Config:
@@ -20,6 +21,7 @@ class Config:
         self.freeze = yaml["freeze"]
         self.dataset = yaml["dataset"]
         self.evaluate = yaml["evaluate"]
+        self.optimizer = yaml["optimizer"]
 
     def load_model(self):
         """Load model for training
@@ -89,3 +91,22 @@ class Config:
         """
         metric_func_map = {"none": None, "accuracy": compute_accuracy}
         return metric_func_map[self.evaluate["metric_function"]]
+    
+    def load_optimizer(self, model, train_dataset):
+        """Load optimizer
+        :return: transformers.Optimizer, transformers.Scheduler
+        """
+
+        num_training_samples = len(train_dataset)
+        num_steps = num_training_samples // self.train["per_device_train_batch_size"] * self.train["num_train_epochs"]
+        self.optimizer["num_steps"] = num_steps
+
+        if "trainable_param_names" not in self.optimizer:
+            if "modifier" in self.model and self.model["modifier"] == "ia3":
+                self.optimizer["trainable_param_names"] = ".*lora_b.*"
+            else:
+                self.optimizer["trainable_param_names"] = ".*"
+            
+        optimizer = get_optimizer(model, self.optimizer)
+        scheduler = get_scheduler(optimizer, self.optimizer)
+        return optimizer, scheduler

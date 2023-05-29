@@ -9,6 +9,9 @@ model:
 freeze:
     strategy: "none"
 
+optimizer:
+    name: "none"
+
 train:
     weight_decay: 0.01
     num_train_epochs: 5
