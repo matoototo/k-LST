@@ -17,6 +17,7 @@ train:
     per_device_eval_batch_size: 16
     output_dir: "results"
     evaluation_strategy: "epoch"
+    save_strategy: "no"
 
 evaluate:
     metric_function: "accuracy"
