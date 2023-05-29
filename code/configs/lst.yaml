@@ -16,6 +16,7 @@ adapter:
     args:
         reduction_factor: 8
         fusion: "gated" # "additive" or "gated"
+        freeze_head: true
 
 train:
     weight_decay: 0.01

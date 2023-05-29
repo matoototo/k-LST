@@ -29,7 +29,7 @@ class LST(nn.Module):
         self._n_outputs = self._register_hooks()
 
         self.side_modules = nn.ParameterDict(self._create_side_modules(self._n_outputs))
-        self.model_head = self._get_model_head(self.model)
+        self.model_head = self._get_model_head(self.model, self.lst_config["freeze_head"])
         self.model.to("cuda:0" if torch.cuda.is_available() else "cpu")
                                          
     def forward(self, input_ids, attention_mask, labels = None, **kwargs):
@@ -56,13 +56,18 @@ class LST(nn.Module):
             return SequenceClassifierOutput(loss=loss, logits=output)
         return SequenceClassifierOutput(logits=output)
 
-    def _get_model_head(self, model):
+    def _get_model_head(self, model, freeze = True):
         if hasattr(model, "qa_outputs"):
-            return model.qa_outputs
+            head = model.qa_outputs
         elif hasattr(model, "classifier"):
-            return model.classifier
+            head = model.classifier
         else:
             raise AttributeError("Model does not have a QA head or classifier")
+
+        for param in head.parameters():
+            param.requires_grad = False if freeze else True
+
+        return head
 
     def _create_side_modules(self, n):
         side_modules = OrderedDict()
