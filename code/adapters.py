@@ -28,7 +28,7 @@ class LST(nn.Module):
         self.intermediate_activations = {}
         self._n_outputs = self._register_hooks()
 
-        self.side_modules = nn.ModuleDict(self._create_side_modules(self._n_outputs))
+        self.side_modules = nn.ParameterDict(self._create_side_modules(self._n_outputs))
         self.model_head = self._get_model_head(self.model)
         self.model.to("cuda:0" if torch.cuda.is_available() else "cpu")
                                          
@@ -40,7 +40,11 @@ class LST(nn.Module):
         for i in range(self._n_outputs):
             backbone_output = self.intermediate_activations[f"backbone_{i}"][0]
             downsampled_backbone = self.side_modules[f"side_downsample_{i}"](backbone_output)
-            output = output + downsampled_backbone
+            if self.lst_config["fusion"] == "additive":
+                output = output + downsampled_backbone
+            else:
+                fuse = torch.sigmoid(self.side_modules[f"fuse_{i}"])
+                output = fuse * output + (1 - fuse) * downsampled_backbone
             output = self.side_modules[f"ladder_block_{i}"](output)
         output = self.side_modules["side_upsample"](output)
         output = self.model_head(output)
@@ -66,6 +70,7 @@ class LST(nn.Module):
         for i in range(n):
             side_modules[f"side_downsample_{i}"] = nn.Linear(self._d_model, self.d_side)
             side_modules[f"ladder_block_{i}"] = TransformerEncoderLayer(self.d_side, 4, self.d_side_ff)
+            side_modules[f"fuse_{i}"] = nn.Parameter(torch.zeros(1))
         side_modules["side_upsample"] = nn.Linear(self.d_side, self._d_model)
         return side_modules
 

@@ -15,6 +15,7 @@ adapter:
     strategy: "lst"
     args:
         reduction_factor: 8
+        fusion: "gated" # "additive" or "gated"
 
 train:
     weight_decay: 0.01
