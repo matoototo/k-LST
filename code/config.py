@@ -1,3 +1,4 @@
+import torch
 import pathlib
 import yaml as PyYAML
 import datasets as huggingface_datasets
@@ -63,7 +64,7 @@ class Config:
         if self.adapter["strategy"] == "none": return model
         if "args" not in self.adapter: self.adapter["args"] = {}
         strategy_map = {"lst": ladder_side_tuning}
-        return strategy_map[self.adapter["strategy"]](model, **self.adapter["args"])
+        return strategy_map[self.adapter["strategy"]](model, **self.adapter["args"]).to("cuda:0" if torch.cuda.is_available() else "cpu")
 
     def load_dataset(self):
         """Load dataset and take subset if specified

@@ -26,5 +26,5 @@ train:
     evaluation_strategy: "epoch"
 
 evaluate:
-    metric_function: "none"
+    metric_function: "accuracy"
 ...
