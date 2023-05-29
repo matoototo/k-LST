@@ -3,35 +3,40 @@ import torch.nn as nn
 import torch.nn.functional as F
 import re
 
-# modify T5 with lora
-class LoRAConfigT5:
-    def __init__(self):
-        self.lora_scaling_rank = 1
-        self.lora_rank = 4
-        self.lora_init_scale = 0.01
-        self.lora_modules = ".*SelfAttention|.*EncDecAttention"
-        self.lora_layers = "q|k|v|o"
-        # self.trainable_param_names = ".*layer_norm.*|.*lora_[ab].*"
-
-# modify T0 with ia3
-class IA3ConfigT0:
-    def __init__(self):
-        self.lora_scaling_rank = 1
-        self.lora_rank = 0
-        self.lora_init_scale = 0.00
-        self.lora_modules = ".*SelfAttention|.*EncDecAttention|.*DenseReluDense"
-        self.lora_layers = "k|v|wi_1.*"
-        # self.trainable_param_names = ".*lora_b.*"
-
-# modify BERT with ia3
-class IA3ConfigBERT:
-    def __init__(self):
-        self.lora_scaling_rank = 1
-        self.lora_rank = 0
-        self.lora_init_scale = 0.00
-        self.lora_modules = ".*attention|.*ffn"
-        self.lora_layers = "k_lin|v_lin|lin1.*" #check lin2
-        # self.trainable_param_names = ".*lora_b.*"
+class LoRAConfig:
+    def __init__(self, base_model, modifier):
+        if modifier == "ia3":
+            self.lora_scaling_rank = 1
+            self.lora_rank = 0
+            self.lora_init_scale = 0.00
+            if base_model == "distilbert":
+                self.lora_layers = "k_lin|v_lin|lin1.*"
+            elif base_model == "t0":
+                self.lora_layers = "k|v|wi_1.*"
+            elif base_model == "t5":
+                self.lora_layers = "k|v|wi.*"
+            else:
+                self.lora_layers = "k.*|v.*|lin.*"
+        else:
+            self.lora_scaling_rank = 0
+            self.lora_rank = 4
+            self.lora_init_scale = 0.01
+            if base_model == "distilbert":
+                self.lora_layers = "q_lin|k_lin|v_lin|out_lin|lin.*"
+            elif base_model == "t0":
+                self.lora_layers = "q|k|v|o|w.*"
+            elif base_model == "t5":
+                self.lora_layers = "q|k|v|o|w.*"
+            else:
+                self.lora_layers = "q.*|k.*|v.*|o.*|lin.*"
+        
+        if base_model == "distilbert":
+            self.lora_modules = ".*attention|.*ffn"
+        elif base_model == "t5" or base_model == "t0":
+            self.lora_modules = ".*SelfAttention|.*EncDecAttention|.*DenseReluDense"
+        else:
+            self.lora_modules = ".*attention|.*ffn"
+        
 
 # from https://github.com/r-three/t-few
 class LoRALinear(nn.Module):

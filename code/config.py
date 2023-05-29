@@ -9,7 +9,7 @@ from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingA
 from dataset_tokenizers import tokenize_squad, tokenize_sst2
 from freeze_strategies import all_but_last_n
 from metric_functions import compute_accuracy
-from models.lora import IA3ConfigBERT, modify_with_lora
+from models.lora import LoRAConfig, modify_with_lora
 from optimizer import get_optimizer, get_scheduler
 
 
@@ -36,8 +36,8 @@ class Config:
             case _:
                 model = AutoModel.from_pretrained(self.model["base_model"])
 
-        if "modifier" in self.model and self.model["modifier"] == "ia3":
-            model = modify_with_lora(model, IA3ConfigBERT())
+        if "modifier" in self.model and self.model["modifier"] == "lora" or self.model["modifier"] == "ia3":
+            model = modify_with_lora(model, LoRAConfig(model.base_model_prefix, self.model["modifier"]))
 
         return model
 
@@ -102,8 +102,13 @@ class Config:
         self.optimizer["num_steps"] = num_steps
 
         if "trainable_param_names" not in self.optimizer:
-            if "modifier" in self.model and self.model["modifier"] == "ia3":
-                self.optimizer["trainable_param_names"] = ".*lora_b.*"
+            if "modifier" in self.model:
+                if self.model["modifier"] == "ia3":
+                    self.optimizer["trainable_param_names"] = ".*lora_b.*"
+                elif self.model["modifier"] == "lora":
+                    self.optimizer["trainable_param_names"] = ".*layer_norm.*|.*lora_[ab].*"
+                else:
+                    self.optimizer["trainable_param_names"] = ".*"
             else:
                 self.optimizer["trainable_param_names"] = ".*"
             
