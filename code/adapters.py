@@ -30,6 +30,7 @@ class LST(nn.Module):
 
         self.side_modules = nn.ModuleDict(self._create_side_modules(self._n_outputs))
         self.model_head = self._get_model_head(self.model)
+        self.model.to("cuda:0" if torch.cuda.is_available() else "cpu")
                                          
     def forward(self, input_ids, attention_mask, labels = None, **kwargs):
         outputs = self.model(input_ids, attention_mask, **kwargs) # Just to get the intermediate activations
