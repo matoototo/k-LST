@@ -49,6 +49,8 @@ class LST(nn.Module):
                 pooled = F.adaptive_avg_pool1d(downsampled_backbone.permute(0, 2, 1), 1).squeeze(-1)
                 fuse = self.side_modules[f"fuse_{i}"](pooled).sigmoid().unsqueeze(-1)
                 output = fuse * output + (1 - fuse) * downsampled_backbone
+            elif self.lst_config["fusion"] == "attention":
+                output = self.side_modules[f"fuse_{i}"](output, downsampled_backbone, downsampled_backbone)[0]
             else:
                 raise ValueError("Invalid fusion strategy, must be one of 'additive', 'gated', or 'dynamic'")
             output = self.side_modules[f"ladder_block_{i}"](output)
@@ -85,6 +87,8 @@ class LST(nn.Module):
                 side_modules[f"fuse_{i}"] = nn.Linear(self.d_side, 1)
             elif self.lst_config["fusion"] == "gated":
                 side_modules[f"fuse_{i}"] = nn.Parameter(torch.zeros(1))
+            elif self.lst_config["fusion"] == "attention":
+                side_modules[f"fuse_{i}"] = nn.MultiheadAttention(self.d_side, 1)
         side_modules["side_upsample"] = nn.Linear(self.d_side, self._d_model)
         return side_modules
 
