@@ -42,9 +42,15 @@ class LST(nn.Module):
             downsampled_backbone = self.side_modules[f"side_downsample_{i}"](backbone_output)
             if self.lst_config["fusion"] == "additive":
                 output = output + downsampled_backbone
-            else:
+            elif self.lst_config["fusion"] == "gated":
                 fuse = torch.sigmoid(self.side_modules[f"fuse_{i}"])
                 output = fuse * output + (1 - fuse) * downsampled_backbone
+            elif self.lst_config["fusion"] == "dynamic":
+                pooled = F.adaptive_avg_pool1d(downsampled_backbone.permute(0, 2, 1), 1).squeeze(-1)
+                fuse = self.side_modules[f"fuse_{i}"](pooled).sigmoid().unsqueeze(-1)
+                output = fuse * output + (1 - fuse) * downsampled_backbone
+            else:
+                raise ValueError("Invalid fusion strategy, must be one of 'additive', 'gated', or 'dynamic'")
             output = self.side_modules[f"ladder_block_{i}"](output)
         output = self.side_modules["side_upsample"](output)
         output = self.model_head(output)
@@ -75,7 +81,10 @@ class LST(nn.Module):
         for i in range(n):
             side_modules[f"side_downsample_{i}"] = nn.Linear(self._d_model, self.d_side)
             side_modules[f"ladder_block_{i}"] = TransformerEncoderLayer(self.d_side, 4, self.d_side_ff)
-            side_modules[f"fuse_{i}"] = nn.Parameter(torch.zeros(1))
+            if self.lst_config["fusion"] == "dynamic":
+                side_modules[f"fuse_{i}"] = nn.Linear(self.d_side, 1)
+            elif self.lst_config["fusion"] == "gated":
+                side_modules[f"fuse_{i}"] = nn.Parameter(torch.zeros(1))
         side_modules["side_upsample"] = nn.Linear(self.d_side, self._d_model)
         return side_modules
 
