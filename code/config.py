@@ -28,17 +28,18 @@ class Config:
         """
         # Return a model for the task based on the config
         if self.model["base_model"] == "t5-base":
-            return T5ForConditionalGeneration.from_pretrained(self.model["base_model"])
-        match self.dataset["name"]:
-            case "squad":
-                model = AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
-            case "sst2":
-                model = AutoModelForSequenceClassification.from_pretrained(self.model["base_model"])
-            case _:
-                model = AutoModel.from_pretrained(self.model["base_model"])
+            model = T5ForConditionalGeneration.from_pretrained(self.model["base_model"])
+        else:
+            match self.dataset["name"]:
+                case "squad":
+                    model = AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
+                case "sst2":
+                    model = AutoModelForSequenceClassification.from_pretrained(self.model["base_model"])
+                case _:
+                    model = AutoModel.from_pretrained(self.model["base_model"])
 
         if "modifier" in self.model and (self.model["modifier"] == "lora" or self.model["modifier"] == "ia3"):
-            model = modify_with_lora(model, LoRAConfig(model.base_model_prefix, self.model["modifier"]))
+            model = modify_with_lora(model, LoRAConfig(self.model["model_type"], self.model["modifier"]))
 
         return model
 

@@ -9,7 +9,7 @@ class LoRAConfig:
             self.lora_scaling_rank = 1
             self.lora_rank = 0
             self.lora_init_scale = 0.00
-            if base_model == "distilbert":
+            if base_model == "bert":
                 self.lora_layers = "k_lin|v_lin|lin1.*"
             elif base_model == "t0":
                 self.lora_layers = "k|v|wi_1.*"
@@ -21,7 +21,7 @@ class LoRAConfig:
             self.lora_scaling_rank = 0
             self.lora_rank = 4
             self.lora_init_scale = 0.01
-            if base_model == "distilbert":
+            if base_model == "bert":
                 self.lora_layers = "q_lin|k_lin|v_lin|out_lin|lin.*"
             elif base_model == "t0":
                 self.lora_layers = "q|k|v|o|w.*"
@@ -30,7 +30,7 @@ class LoRAConfig:
             else:
                 self.lora_layers = "q.*|k.*|v.*|o.*|lin.*"
         
-        if base_model == "distilbert":
+        if base_model == "bert":
             self.lora_modules = ".*attention|.*ffn"
         elif base_model == "t5" or base_model == "t0":
             self.lora_modules = ".*SelfAttention|.*EncDecAttention|.*DenseReluDense"
