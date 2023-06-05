@@ -20,7 +20,6 @@ class Config:
         self.train = yaml["train"]
         self.freeze = yaml["freeze"]
         self.dataset = yaml["dataset"]
-        self.evaluate = yaml["evaluate"]
         self.optimizer = yaml["optimizer"]
 
     def load_model(self):
