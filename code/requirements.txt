@@ -6,3 +6,5 @@ evaluate
 numpy
 tensorboard
 PyYAML
+accelerate
+scikit-learn

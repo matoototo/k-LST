@@ -53,3 +53,19 @@ def tokenize_sst2(dataset, tokenizer, max_length):
     )
 
     return tokenized_inputs
+
+
+def tokenize_sst2_t5(dataset, tokenizer, max_length):
+    tokenized_inputs = tokenizer(
+        # "sst2 sentence: " can be added to the beginning of sentences as in
+        # https://arxiv.org/abs/1910.10683 (Appendix D.7). This gives almost perfect results before any training.
+        dataset["sentence"],
+        max_length=max_length,
+        truncation=True
+    )
+
+    # Change label from 1 or 0 to tokenized "positive" or "negative"
+    tokenized_inputs["label"] = [
+        tokenizer("positive")["input_ids"] if label == 1 else tokenizer("negative")["input_ids"] for label in
+        dataset["label"]]
+    return tokenized_inputs

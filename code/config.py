@@ -4,11 +4,11 @@ import datasets as huggingface_datasets
 
 from functools import partial
 from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingArguments, \
-    AutoModelForSequenceClassification, AutoModel
+    AutoModelForSequenceClassification, AutoModel, T5ForConditionalGeneration
 
-from dataset_tokenizers import tokenize_squad, tokenize_sst2
+from dataset_tokenizers import tokenize_squad, tokenize_sst2, tokenize_sst2_t5
 from freeze_strategies import all_but_last_n
-from metric_functions import compute_accuracy
+from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5
 from models.lora import LoRAConfig, modify_with_lora
 from optimizer import get_optimizer, get_scheduler
 
@@ -28,6 +28,8 @@ class Config:
         :return: transformers.PreTrainedModel
         """
         # Return a model for the task based on the config
+        if self.model["base_model"] == "t5-base":
+            return T5ForConditionalGeneration.from_pretrained(self.model["base_model"])
         match self.dataset["name"]:
             case "squad":
                 model = AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
@@ -66,11 +68,16 @@ class Config:
         """Tokenize dataset
         :return: datasets.Dataset, transformers.PreTrainedTokenizer
         """
-        tokenize_func_map = {"squad": tokenize_squad, "sst2": tokenize_sst2}
-        tokenize_func = tokenize_func_map[self.dataset["name"]]
+        tokenize_func_map = {"squad bert": tokenize_squad, "sst2 bert": tokenize_sst2, "sst2 t5": tokenize_sst2_t5}
+        tokenize_func = tokenize_func_map[f"{self.dataset['name']} {self.model['model_type']}"]
 
         tokenizer = AutoTokenizer.from_pretrained(self.model["base_model"])
-        max_length = model.config.max_position_embeddings
+
+        if self.model["base_model"] == "t5-base":
+            max_length = 512
+        else:
+            max_length = model.config.max_position_embeddings
+
         tokenize_partial = partial(tokenize_func, tokenizer=tokenizer, max_length=max_length)
         # Remove columns of the tokenized dataset that the model does not accept
         columns_to_remove = {"squad": dataset["train"].column_names, "sst2": ["idx", "sentence"]}
@@ -89,9 +96,12 @@ class Config:
         """Load metric function to be used during evaluation
         :return: function
         """
-        metric_func_map = {"none": None, "accuracy": compute_accuracy}
-        return metric_func_map[self.evaluate["metric_function"]]
-    
+        metric_func_map = {"sst2 bert": compute_metrics_sst2_bert, "sst2 t5": compute_metrics_sst2_t5}
+        key = f"{self.dataset['name']} {self.model['model_type']}"
+        if key not in metric_func_map:
+            return None
+        return metric_func_map[key]
+        
     def load_optimizer(self, model, train_dataset):
         """Load optimizer
         :return: transformers.Optimizer, transformers.Scheduler
