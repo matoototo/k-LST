@@ -12,7 +12,6 @@ from freeze_strategies import all_but_last_n
 from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5
 from models.lora import LoRAConfig, modify_with_lora
 from optimizer import get_optimizer, get_scheduler
-from metric_functions import compute_accuracy
 from adapters import ladder_side_tuning
 
 
@@ -25,7 +24,6 @@ class Config:
         self.dataset = yaml["dataset"]
         self.optimizer = yaml["optimizer"]
         self.adapter = yaml["adapter"]
-        self.evaluate = yaml["evaluate"]
 
     def load_model(self):
         """Load model for training
