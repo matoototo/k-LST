@@ -36,7 +36,7 @@ class Config:
             case _:
                 model = AutoModel.from_pretrained(self.model["base_model"])
 
-        if "modifier" in self.model and self.model["modifier"] == "lora" or self.model["modifier"] == "ia3":
+        if "modifier" in self.model and (self.model["modifier"] == "lora" or self.model["modifier"] == "ia3"):
             model = modify_with_lora(model, LoRAConfig(model.base_model_prefix, self.model["modifier"]))
 
         return model
