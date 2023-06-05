@@ -83,7 +83,7 @@ class LST(nn.Module):
     def encoder(self, input):
         n = self._n_outputs if not self.is_t5 else self._n_outputs // 2
         output = self.side_modules["initial_downsample"](input) # [16]
-        for i in range(self._n_outputs):
+        for i in range(n):
             backbone_output = self.intermediate_activations[f"backbone_{i}"][0]
             downsampled_backbone = self.side_modules[f"side_downsample_{i}"](backbone_output)
             output = self.fuse(downsampled_backbone, output, i)
@@ -92,7 +92,7 @@ class LST(nn.Module):
     
     def decoder(self, input, encoder_out):
         offset = self._n_outputs // 2 if self.is_t5 else 0
-        output = self.side_modules["initial_upsample"](input)
+        output = self.side_modules["initial_downsample_dec"](input)
         for i in range(offset, self._n_outputs):
             backbone_output = self.intermediate_activations[f"backbone_{i}"][0]
             downsampled_backbone = self.side_modules[f"side_downsample_{i}"](backbone_output)
@@ -106,17 +106,21 @@ class LST(nn.Module):
         else:
             _ = self.model(input_ids, attention_mask, **kwargs) # Just to get the intermediate activations
         input = self.intermediate_activations["embeddings"]
+        dec_input = self.intermediate_activations["embeddings_dec"]
         output = self.encoder(input)
-        if self.is_t5: output = self.decoder(labels, output)
+        if self.is_t5: output = self.decoder(dec_input, output)
         output = self.side_modules["side_upsample"](output)
         output = self.model_head(output)
-        output = output[:, 0, :]  # CLS token
-        if labels is not None:
-            loss_fct = nn.CrossEntropyLoss()
-            loss = loss_fct(output, labels)
-        if labels is not None:
-            return SequenceClassifierOutput(loss=loss, logits=output)
-        return SequenceClassifierOutput(logits=output)
+        if not self.is_t5:
+            output = output[:, 0, :]  # CLS token
+            if labels is not None:
+                loss_fct = nn.CrossEntropyLoss()
+                loss = loss_fct(output, labels)
+            if labels is not None:
+                return SequenceClassifierOutput(loss=loss, logits=output)
+            return SequenceClassifierOutput(logits=output)
+        else:
+            return output
 
     def _get_model_head(self, model, freeze = True):
         if self.is_t5:
@@ -136,16 +140,18 @@ class LST(nn.Module):
     def _create_side_modules(self, n):
         side_modules = OrderedDict()
         side_modules["initial_downsample"] = nn.Linear(self._d_model, self.d_side)
+        if self.is_t5:
+            side_modules["initial_downsample_dec"] = nn.Linear(self._d_model, self.d_side)
         for i in range(n):
             side_modules[f"side_downsample_{i}"] = nn.Linear(self._d_model, self.d_side)
             block_type = TransformerEncoderLayer if i < n // 2 or (not self.is_t5) else TransformerDecoderLayer
-            side_modules[f"ladder_block_{i}"] = block_type(self.d_side, 4, self.d_side_ff)
+            side_modules[f"ladder_block_{i}"] = block_type(self.d_side, 4, self.d_side_ff, batch_first=True)
             if self.lst_config["fusion"] == "dynamic":
                 side_modules[f"fuse_{i}"] = nn.Linear(self.d_side, 1)
             elif self.lst_config["fusion"] == "gated":
                 side_modules[f"fuse_{i}"] = nn.Parameter(torch.zeros(1))
             elif self.lst_config["fusion"] == "attention":
-                side_modules[f"fuse_{i}"] = nn.MultiheadAttention(self.d_side, 1)
+                side_modules[f"fuse_{i}"] = nn.MultiheadAttention(self.d_side, 1, batch_first=True)
         side_modules["side_upsample"] = nn.Linear(self.d_side, self._d_model)
         return side_modules
 
@@ -163,7 +169,10 @@ class LST(nn.Module):
     def _hook(self, name):
         # Closure
         def hook(module, input, output):
-            self.intermediate_activations[name] = output
+            if name in self.intermediate_activations:
+                self.intermediate_activations[f"{name}_dec"] = output
+            else:
+                self.intermediate_activations[name] = output
         return hook
 
     def __getattr__(self, name):
