@@ -1,23 +1,26 @@
 %YAML 1.2
 ---
 dataset:
-    name: "squad"
-    n_train: 5000
-    n_val: 500
+    name: "sst2"
 
 model:
     base_model: "distilbert-base-cased"
     model_type: "bert"
+    modifier: "lora"
 
 freeze:
-    strategy: "all_but_last_n"
-    args:
-        n: 1
+    strategy: "none"
+
+optimizer:
+    name: "adafactor"
+    lr: 0.003
+    weight_decay: 0
+    scale_parameter: True
+    scheduler: "linear_decay_with_warmup"
+    warmup_ratio: 0.06
 
 train:
-    weight_decay: 0.01
     num_train_epochs: 5
-    learning_rate: 0.00002
     per_device_train_batch_size: 16
     per_device_eval_batch_size: 16
     output_dir: "results"

@@ -9,6 +9,8 @@ from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingA
 from dataset_tokenizers import tokenize_squad, tokenize_sst2, tokenize_sst2_t5
 from freeze_strategies import all_but_last_n
 from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5
+from models.lora import LoRAConfig, modify_with_lora
+from optimizer import get_optimizer, get_scheduler
 
 
 class Config:
@@ -18,6 +20,7 @@ class Config:
         self.train = yaml["train"]
         self.freeze = yaml["freeze"]
         self.dataset = yaml["dataset"]
+        self.optimizer = yaml["optimizer"]
 
     def load_model(self):
         """Load model for training
@@ -25,14 +28,20 @@ class Config:
         """
         # Return a model for the task based on the config
         if self.model["base_model"] == "t5-base":
-            return T5ForConditionalGeneration.from_pretrained(self.model["base_model"])
-        match self.dataset["name"]:
-            case "squad":
-                return AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
-            case "sst2":
-                return AutoModelForSequenceClassification.from_pretrained(self.model["base_model"])
-            case _:
-                return AutoModel.from_pretrained(self.model["base_model"])
+            model = T5ForConditionalGeneration.from_pretrained(self.model["base_model"])
+        else:
+            match self.dataset["name"]:
+                case "squad":
+                    model = AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
+                case "sst2":
+                    model = AutoModelForSequenceClassification.from_pretrained(self.model["base_model"])
+                case _:
+                    model = AutoModel.from_pretrained(self.model["base_model"])
+
+        if "modifier" in self.model and (self.model["modifier"] == "lora" or self.model["modifier"] == "ia3"):
+            model = modify_with_lora(model, LoRAConfig(self.model["model_type"], self.model["modifier"]))
+
+        return model
 
     def freeze_model(self, model):
         """Apply freezing strategy to model
@@ -92,3 +101,27 @@ class Config:
         if key not in metric_func_map:
             return None
         return metric_func_map[key]
+        
+    def load_optimizer(self, model, train_dataset):
+        """Load optimizer
+        :return: transformers.Optimizer, transformers.Scheduler
+        """
+
+        num_training_samples = len(train_dataset)
+        num_steps = num_training_samples // self.train["per_device_train_batch_size"] * self.train["num_train_epochs"]
+        self.optimizer["num_steps"] = num_steps
+
+        if "trainable_param_names" not in self.optimizer:
+            if "modifier" in self.model:
+                if self.model["modifier"] == "ia3":
+                    self.optimizer["trainable_param_names"] = ".*lora_b.*"
+                elif self.model["modifier"] == "lora":
+                    self.optimizer["trainable_param_names"] = ".*layer_norm.*|.*lora_[ab].*"
+                else:
+                    self.optimizer["trainable_param_names"] = ".*"
+            else:
+                self.optimizer["trainable_param_names"] = ".*"
+            
+        optimizer = get_optimizer(model, self.optimizer)
+        scheduler = get_scheduler(optimizer, self.optimizer)
+        return optimizer, scheduler
