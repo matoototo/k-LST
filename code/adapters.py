@@ -52,7 +52,7 @@ class LST(nn.Module):
             elif self.lst_config["fusion"] == "attention":
                 output = self.side_modules[f"fuse_{i}"](output, downsampled_backbone, downsampled_backbone)[0]
             else:
-                raise ValueError("Invalid fusion strategy, must be one of 'additive', 'gated', or 'dynamic'")
+                raise ValueError("Invalid fusion strategy, must be one of 'additive', 'gated', 'attention' or 'dynamic'")
             output = self.side_modules[f"ladder_block_{i}"](output)
         output = self.side_modules["side_upsample"](output)
         output = self.model_head(output)
