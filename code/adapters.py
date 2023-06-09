@@ -106,9 +106,10 @@ class LST(nn.Module):
         else:
             _ = self.model(input_ids, attention_mask, **kwargs) # Just to get the intermediate activations
         input = self.intermediate_activations["embeddings"]
-        dec_input = self.intermediate_activations["embeddings_dec"]
         output = self.encoder(input)
-        if self.is_t5: output = self.decoder(dec_input, output)
+        if self.is_t5:
+            dec_input = self.intermediate_activations["embeddings_dec"]
+            output = self.decoder(dec_input, output)
         output = self.side_modules["side_upsample"](output)
         output = self.model_head(output)
 
