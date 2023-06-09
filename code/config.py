@@ -12,7 +12,7 @@ from freeze_strategies import all_but_last_n
 from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5
 from models.lora import LoRAConfig, modify_with_lora
 from optimizer import get_optimizer, get_scheduler
-from adapters import ladder_side_tuning
+from adapters import ladder_side_tuning, ladder_side_distillation
 
 
 class Config:
@@ -61,7 +61,7 @@ class Config:
         """
         if self.adapter["strategy"] == "none": return model
         if "args" not in self.adapter: self.adapter["args"] = {}
-        strategy_map = {"lst": ladder_side_tuning}
+        strategy_map = {"lst": ladder_side_tuning, "lst_distill": ladder_side_distillation}
         return strategy_map[self.adapter["strategy"]](model, **self.adapter["args"]).to("cuda:0" if torch.cuda.is_available() else "cpu")
 
     def load_dataset(self):

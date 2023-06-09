@@ -14,6 +14,12 @@ def ladder_side_tuning(model, **config):
     """
     return LST(model, config)
 
+def ladder_side_distillation(model, **config):
+    """Performs distillation with LST structure.
+    :return: nn.Module
+    """
+    return LSTDistillation(model, config)
+
 def get_d_model(model):
     if hasattr(model.config, "dim"):
         return model.config.dim
@@ -45,6 +51,7 @@ def is_block(model, module_name):
         return module_name[-2] == "layer" and module_name[-1].isdigit()
     else:
         raise ValueError("Only T5 and BERT models are supported")
+
 
 class LST(nn.Module):
     def __init__(self, model, config):
@@ -174,7 +181,10 @@ class LST(nn.Module):
         if self.is_t5:
             side_modules["initial_downsample_dec"] = nn.Linear(self._d_model, self.d_side)
         for i in range(n):
-            side_modules[f"side_downsample_{i}"] = nn.Linear(self._d_model, self.d_side)
+            if self.lst_config["downsample"] == "adaptive_avg_pool1d":
+                side_modules[f"side_downsample_{i}"] = nn.AdaptiveAvgPool1d(self.d_side)
+            else:
+                side_modules[f"side_downsample_{i}"] = nn.Linear(self._d_model, self.d_side)
             block_type = TransformerEncoderLayer if i < n // 2 or (not self.is_t5) else TransformerDecoderLayer
             side_modules[f"ladder_block_{i}"] = block_type(self.d_side, 4, self.d_side_ff, batch_first=True)
             if self.lst_config["fusion"] == "dynamic":
@@ -214,3 +224,39 @@ class LST(nn.Module):
                 raise AttributeError()
             return getattr(self.model, name)
 
+
+class LSTDistillation(LST):
+    def __init__(self, model, config):
+        super().__init__(model, config)
+        assert not self.is_t5, "T5 distillation is not supported yet"
+        assert config["downsample"] == "adaptive_avg_pool1d", "Can't have learned downsample for distillation"
+        self.distillation_weight = config["distillation_weight"]
+
+    def encoder(self, input):
+        n = self._n_outputs
+        output = self.side_modules["initial_downsample"](input) # [16]
+        losses = []
+        loss_fct = nn.MSELoss()
+        for i in range(n):
+            backbone_output = self.intermediate_activations[f"backbone_{i}"][0]
+            downsampled_backbone = self.side_modules[f"side_downsample_{i}"](backbone_output)
+            losses.append(loss_fct(output, downsampled_backbone))
+            output = self.side_modules[f"ladder_block_{i}"](output)
+        return output, sum(losses)
+
+    def forward(self, input_ids, attention_mask, *, labels=None, **kwargs):
+        _ = self.model(input_ids, attention_mask, **kwargs) # Just to get the intermediate activations
+        input = self.intermediate_activations["embeddings"]
+        output, distillation_loss = self.encoder(input)
+        output = self.side_modules["side_upsample"](output)
+        output = self.model_head(output)
+
+        self.intermediate_activations = OrderedDict()
+
+        output = output[:, 0, :]  # CLS token
+        if labels is not None:
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(output, labels) + self.distillation_weight * distillation_loss
+        if labels is not None:
+            return SequenceClassifierOutput(loss=loss, logits=output)
+        return SequenceClassifierOutput(logits=output)
