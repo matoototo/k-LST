@@ -1,12 +1,15 @@
 from transformers import Trainer, DataCollatorWithPadding
 from config import Config
 from update_policy import UpdatePolicyCallback
+from distillation import DistillationTrainer, ClassroomTrainer
 
 
 def train(config: Config):
     # ========= MODEL ========= #
     # Load model and apply freezing strategy
-    model = config.load_model()
+    model = config.load_model("base_model")
+    if "modifier" in config.model and config.model["modifier"] == "lr_distil":
+        teacher_model = config.load_model("teacher_model")
     config.freeze_model(model)
 
     # ========= DATA ========= #
@@ -19,6 +22,7 @@ def train(config: Config):
 
     # ========= TRAINING ========= #
     training_args = config.load_training_args()
+    training_variables = {}
 
     train_dataset = tokenized_dataset["train"]
     eval_dataset = tokenized_dataset["validation"]
@@ -27,19 +31,34 @@ def train(config: Config):
     metric_function = config.load_metric_function()
 
     # get optimizer & scheduler
-    optimizer = config.load_optimizer(model, train_dataset)
+    optimizer = config.load_optimizer(model, train_dataset, training_variables)
 
-    trainer = Trainer(
-        model,
-        training_args,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        data_collator=data_collator,
-        tokenizer=tokenizer,
-        compute_metrics=metric_function,
-        callbacks=[UpdatePolicyCallback(model)],
-        optimizers=optimizer
-    )
+    if "modifier" in config.model and config.model["modifier"] == "lr_distil":
+        trainer = ClassroomTrainer(
+            model,
+            training_args,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            data_collator=data_collator,
+            tokenizer=tokenizer,
+            compute_metrics=metric_function,
+            callbacks=[UpdatePolicyCallback(model)],
+            optimizers=optimizer,
+            teacher_model=teacher_model,
+            training_variables=training_variables
+        )
+    else:
+        trainer = Trainer(
+            model,
+            training_args,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            data_collator=data_collator,
+            tokenizer=tokenizer,
+            compute_metrics=metric_function,
+            callbacks=[UpdatePolicyCallback(model)],
+            optimizers=optimizer
+        )
 
     # Perform validation before training
     print("Evaluating before training (epoch 0)...")

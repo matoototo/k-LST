@@ -1,0 +1,30 @@
+%YAML 1.2
+---
+dataset:
+    name: "sst2"
+
+model:
+    teacher_model: "gchhablani/bert-base-cased-finetuned-sst2"
+    base_model: "distilbert-base-cased"
+    model_type: "bert"
+    modifier: "lr_distil"
+
+freeze:
+    strategy: "none"
+
+optimizer:
+    name: "classroom"
+    lr: 0.003
+    weight_decay: 0
+    scale_parameter: True
+    scheduler: "linear_decay_with_warmup"
+    warmup_ratio: 0.06
+
+train:
+    num_train_epochs: 2
+    per_device_train_batch_size: 16
+    per_device_eval_batch_size: 16
+    output_dir: "results"
+    evaluation_strategy: "epoch"
+
+...

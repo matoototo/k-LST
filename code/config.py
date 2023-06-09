@@ -11,6 +11,7 @@ from freeze_strategies import all_but_last_n
 from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5
 from models.lora import LoRAConfig, modify_with_lora
 from optimizer import get_optimizer, get_scheduler
+from distillation import DistillationTrainingArguments
 
 
 class Config:
@@ -22,21 +23,21 @@ class Config:
         self.dataset = yaml["dataset"]
         self.optimizer = yaml["optimizer"]
 
-    def load_model(self):
+    def load_model(self, model_config):
         """Load model for training
         :return: transformers.PreTrainedModel
         """
         # Return a model for the task based on the config
-        if self.model["base_model"] == "t5-base":
-            model = T5ForConditionalGeneration.from_pretrained(self.model["base_model"])
+        if self.model[model_config] == "t5-base":
+            model = T5ForConditionalGeneration.from_pretrained(self.model[model_config])
         else:
             match self.dataset["name"]:
                 case "squad":
-                    model = AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
+                    model = AutoModelForQuestionAnswering.from_pretrained(self.model[model_config])
                 case "sst2":
-                    model = AutoModelForSequenceClassification.from_pretrained(self.model["base_model"])
+                    model = AutoModelForSequenceClassification.from_pretrained(self.model[model_config])
                 case _:
-                    model = AutoModel.from_pretrained(self.model["base_model"])
+                    model = AutoModel.from_pretrained(self.model[model_config])
 
         if "modifier" in self.model and (self.model["modifier"] == "lora" or self.model["modifier"] == "ia3"):
             model = modify_with_lora(model, LoRAConfig(self.model["model_type"], self.model["modifier"]))
@@ -71,7 +72,7 @@ class Config:
         tokenize_func_map = {"squad bert": tokenize_squad, "sst2 bert": tokenize_sst2, "sst2 t5": tokenize_sst2_t5}
         tokenize_func = tokenize_func_map[f"{self.dataset['name']} {self.model['model_type']}"]
 
-        tokenizer = AutoTokenizer.from_pretrained(self.model["base_model"])
+        tokenizer = AutoTokenizer.from_pretrained(self.model["base_model"]) # maybe use teacher tokenizer
 
         if self.model["base_model"] == "t5-base":
             max_length = 512
@@ -90,7 +91,10 @@ class Config:
         """Load training arguments
         :return: transformers.TrainingArguments
         """
-        return TrainingArguments(**self.train)
+        if "modifier" in self.model and self.model["modifier"] == "lr_distil":
+            return DistillationTrainingArguments(**self.train)
+        else:
+            return TrainingArguments(**self.train)
 
     def load_metric_function(self):
         """Load metric function to be used during evaluation
@@ -102,7 +106,7 @@ class Config:
             return None
         return metric_func_map[key]
         
-    def load_optimizer(self, model, train_dataset):
+    def load_optimizer(self, model, train_dataset, training_variables):
         """Load optimizer
         :return: transformers.Optimizer, transformers.Scheduler
         """
@@ -122,6 +126,6 @@ class Config:
             else:
                 self.optimizer["trainable_param_names"] = ".*"
             
-        optimizer = get_optimizer(model, self.optimizer)
+        optimizer = get_optimizer(model, self.optimizer, training_variables)
         scheduler = get_scheduler(optimizer, self.optimizer)
         return optimizer, scheduler
