@@ -111,6 +111,9 @@ class LST(nn.Module):
         if self.is_t5: output = self.decoder(dec_input, output)
         output = self.side_modules["side_upsample"](output)
         output = self.model_head(output)
+
+        self.intermediate_activations = OrderedDict()
+
         if not self.is_t5:
             output = output[:, 0, :]  # CLS token
             if labels is not None:
@@ -120,7 +123,14 @@ class LST(nn.Module):
                 return SequenceClassifierOutput(loss=loss, logits=output)
             return SequenceClassifierOutput(logits=output)
         else:
-            return output
+            loss = None
+            lm_logits = output
+            if labels is not None:
+                loss_fct = lambda x, y: F.cross_entropy(x, y, ignore_index=-100)
+                labels = labels.to(lm_logits.device)
+                loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
+            output = lm_logits
+            return ((loss,) + ([output],)) if loss is not None else output
 
     def _get_model_head(self, model, freeze = True):
         if self.is_t5:
