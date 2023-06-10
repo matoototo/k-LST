@@ -1,3 +1,4 @@
+from typing import Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -100,16 +101,33 @@ class LST(nn.Module):
             output = self.side_modules[f"ladder_block_{i}"](output, encoder_out)
         return output
 
-    def forward(self, input_ids, attention_mask, *, labels=None, **kwargs):
+    def forward(self,
+        input_ids: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.FloatTensor] = None,
+        decoder_input_ids: Optional[torch.LongTensor] = None,
+        decoder_attention_mask: Optional[torch.BoolTensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        decoder_head_mask: Optional[torch.FloatTensor] = None,
+        cross_attn_head_mask: Optional[torch.Tensor] = None,
+        encoder_outputs: Optional[Tuple[Tuple[torch.Tensor]]] = None,
+        past_key_values: Optional[Tuple[Tuple[torch.Tensor]]] = None,
+        inputs_embeds: Optional[torch.FloatTensor] = None,
+        decoder_inputs_embeds: Optional[torch.FloatTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        use_cache: Optional[bool] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,):
         if self.is_t5:
-            _ = self.model(input_ids, attention_mask, decoder_input_ids=labels, **kwargs)
+            _ = self.model(input_ids = input_ids, attention_mask = attention_mask, decoder_input_ids = decoder_input_ids, decoder_attention_mask = decoder_attention_mask, head_mask = head_mask, decoder_head_mask = decoder_head_mask, cross_attn_head_mask = cross_attn_head_mask, encoder_outputs = encoder_outputs, past_key_values = past_key_values, inputs_embeds = inputs_embeds, decoder_inputs_embeds = decoder_inputs_embeds, labels = labels, use_cache = use_cache, output_attentions = output_attentions, output_hidden_states = output_hidden_states, return_dict = return_dict)
         else:
-            _ = self.model(input_ids, attention_mask, **kwargs) # Just to get the intermediate activations
+            _ = self.model(input_ids, attention_mask) # Just to get the intermediate activations
         input = self.intermediate_activations["embeddings"]
         output = self.encoder(input)
         if self.is_t5:
             dec_input = self.intermediate_activations["embeddings_dec"]
-            output = self.decoder(dec_input, output)
+            masked_enc_out = output * attention_mask.unsqueeze(-1)
+            output = self.decoder(dec_input, masked_enc_out)
         output = self.side_modules["side_upsample"](output)
         output = self.model_head(output)
 
@@ -129,7 +147,9 @@ class LST(nn.Module):
             if labels is not None:
                 loss_fct = lambda x, y: F.cross_entropy(x, y, ignore_index=-100)
                 labels = labels.to(lm_logits.device)
-                loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
+                _lm_logits = lm_logits[:, 0, :]
+                labels = labels[:, 0]
+                loss = loss_fct(_lm_logits, labels)
             output = lm_logits
             return ((loss,) + ([output],)) if loss is not None else output
 
