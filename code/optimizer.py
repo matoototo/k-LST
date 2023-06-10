@@ -15,16 +15,19 @@ class Classroom(Adafactor):
     
     @staticmethod
     def _get_lr(param_group, param_state, variables):
-        rel_step_sz = param_group["lr"]
+        # rel_step_sz = param_group["lr"]
+        rel_step_sz = 0.00002
         if param_group["relative_step"]:
             min_step = 1e-6 * param_state["step"] if param_group["warmup_init"] else 1e-2
             rel_step_sz = min(min_step, 1.0 / math.sqrt(param_state["step"]))
         param_scale = 1.0
         if param_group["scale_parameter"]:
             param_scale = max(param_group["eps"][1], param_state["RMS"])
+        param_scale = param_scale * variables["distillation_loss"].item()
         return param_scale * rel_step_sz
     
     # Default Hugging Face Adafactor implementation with _get_lr modified to use the distillation loss
+    # https://github.com/huggingface/transformers/blob/v4.30.0/src/transformers/optimization.py#L639
     @torch.no_grad()
     def step(self, closure=None):
         """
@@ -119,6 +122,20 @@ class Classroom(Adafactor):
 
         return loss
 
+# Default Hugging Face Adafactor Scheduler implementation modified to accomodate _get_lr changes
+# https://github.com/huggingface/transformers/blob/v4.30.0/src/transformers/optimization.py#L733
+class ClassroomSchedule(AdafactorSchedule):
+    def get_lr(self):
+        opt = self.optimizer
+        lrs = [
+            opt._get_lr(group, opt.state[group["params"][0]], opt.variables)
+            for group in opt.param_groups
+            if group["params"][0].grad is not None
+        ]
+        if len(lrs) == 0:
+            lrs = self.base_lrs  # if called before stepping
+        return lrs
+
 # from https://github.com/r-three/t-few
 def get_optimizer(model, config, training_variables):
     """
@@ -186,7 +203,8 @@ def get_scheduler(optimizer, config):
     :return:
     """
     scheduler_name = config["scheduler"]
-    num_warmup_steps = config["num_steps"] * config["warmup_ratio"]
+    if "warmup_ratio" in config:
+        num_warmup_steps = config["num_steps"] * config["warmup_ratio"]
 
     if scheduler_name == "polynomial_decay_with_warmup":
         return get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps, config["num_steps"])
@@ -196,8 +214,10 @@ def get_scheduler(optimizer, config):
         return get_linear_schedule_with_warmup(optimizer, num_warmup_steps, config["num_steps"])
     elif scheduler_name == "cosine_annealing":
         return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, config["num_steps"])
-    elif scheduler_name == "adafactor" or scheduler_name == "classroom":
+    elif scheduler_name == "adafactor":
         return AdafactorSchedule(optimizer, config["lr"])
+    elif scheduler_name == "classroom":
+        return ClassroomSchedule(optimizer, config["lr"])
     else:
         raise ValueError("Invalid Scheduler Name %s" % scheduler_name)
 

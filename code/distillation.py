@@ -50,26 +50,23 @@ class ClassroomTrainer(Trainer):
         self.variables = training_variables
 
     def compute_loss(self, model, inputs, return_outputs=False):
+        loss_student, outputs_student = super().compute_loss(model, inputs, return_outputs=True)
 
-        # compute student output
-        outputs_student = model(**inputs)
-        student_loss=outputs_student.loss
         # compute teacher output
         with torch.no_grad():
-          outputs_teacher = self.teacher(**inputs)
-
-        # assert size
-        assert outputs_student.logits.size() == outputs_teacher.logits.size()
-
+            outputs_teacher = self.teacher(**inputs)
+        
         # Soften probabilities and compute distillation loss
         loss_function = nn.KLDivLoss(reduction="batchmean")
         loss_logits = (loss_function(
             F.log_softmax(outputs_student.logits / self.args.temperature, dim=-1),
             F.softmax(outputs_teacher.logits / self.args.temperature, dim=-1)) * (self.args.temperature ** 2))
+
+        # Compute L1 loss instead of distillation loss
+        # loss_function = nn.L1Loss(reduction="mean")
+        # loss_logits = loss_function(outputs_student.logits, outputs_teacher.logits)
         
         # Save distillation loss for use in the optimizer
         self.variables["distillation_loss"] = loss_logits
 
-        # Return just the student loss
-        loss = student_loss
-        return (loss, outputs_student) if return_outputs else loss
+        return (loss_student, outputs_student) if return_outputs else loss_student
