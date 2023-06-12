@@ -11,12 +11,12 @@ freeze:
     strategy: "none"
 
 optimizer:
-    name: "adamw"
-    lr: 0.00002
+    name: "sgd"
+    lr: 0.00001
     weight_decay: 0.01
     scale_parameter: True
-    scheduler: "linear_decay_with_warmup"
-    warmup_ratio: 0.06
+    scheduler: "constant"
+    warmup_ratio: 0
 
 train:
     num_train_epochs: 5
@@ -24,5 +24,6 @@ train:
     per_device_eval_batch_size: 16
     output_dir: "results"
     evaluation_strategy: "epoch"
+    save_strategy: "no"
 
 ...
