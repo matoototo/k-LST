@@ -17,6 +17,14 @@ class LoRAConfig:
                 self.lora_layers = "k|v|wi.*"
             else:
                 self.lora_layers = "k.*|v.*|lin.*"
+        elif modifier == "additive-scaling":
+            self.lora_scaling_rank = 1
+            self.lora_rank = 0
+            self.lora_init_scale = 0.00
+            if base_model == "bert":
+                self.lora_layers = "out_lin|lin1.*"
+            else:
+                self.lora_layers = "out.*|lin.*"
         else:
             self.lora_scaling_rank = 0
             self.lora_rank = 4
