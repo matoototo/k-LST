@@ -17,6 +17,30 @@ class LoRAConfig:
                 self.lora_layers = "k|v|wi.*"
             else:
                 self.lora_layers = "k.*|v.*|lin.*"
+        elif modifier == "additive-scaling":
+            self.lora_scaling_rank = 1
+            self.lora_rank = 0
+            self.lora_init_scale = 0.00
+            if base_model == "bert":
+                self.lora_layers = "out_lin|lin1.*"
+            else:
+                self.lora_layers = "out.*|lin.*"
+        elif modifier == "ia3-out":
+            self.lora_scaling_rank = 1
+            self.lora_rank = 0
+            self.lora_init_scale = 0.00
+            if base_model == "bert":
+                self.lora_layers = "k_lin|v_lin|out_lin"
+            else:
+                self.lora_layers = "out.*|lin.*"
+        elif modifier == "ffn-only":
+            self.lora_scaling_rank = 1
+            self.lora_rank = 0
+            self.lora_init_scale = 0.00
+            if base_model == "bert":
+                self.lora_layers = "lin1|lin2"
+            else:
+                self.lora_layers = "out.*|lin.*"
         else:
             self.lora_scaling_rank = 0
             self.lora_rank = 4
@@ -31,7 +55,10 @@ class LoRAConfig:
                 self.lora_layers = "q.*|k.*|v.*|o.*|lin.*"
         
         if base_model == "bert":
-            self.lora_modules = ".*attention|.*ffn"
+            if modifier == "ffn-only":
+                self.lora_modules = ".*ffn"
+            else:
+                self.lora_modules = ".*attention|.*ffn"
         elif base_model == "t5" or base_model == "t0":
             self.lora_modules = ".*SelfAttention|.*EncDecAttention|.*DenseReluDense"
         else:
