@@ -6,7 +6,13 @@ dataset:
 model:
     base_model: "t5-base"
     model_type: "t5"
-    modifier: "ia3"
+    lora:
+        scaling_rank: 1
+        rank: 0
+        init_scale: 0.00
+        layers: "k|v|wi.*" # "k|v|wi_1.*" for t0
+        modules: ".*SelfAttention|.*EncDecAttention|.*DenseReluDense"
+        buffer_original: False
 
 freeze:
     strategy: "none"
@@ -18,6 +24,7 @@ optimizer:
     scale_parameter: True
     scheduler: "linear_decay_with_warmup"
     warmup_ratio: 0.06
+    trainable_param_names: ".*lora_b.*"
 
 train:
     num_train_epochs: 2

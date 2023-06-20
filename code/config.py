@@ -9,7 +9,7 @@ from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingA
 from dataset_tokenizers import tokenize_squad, tokenize_sst2, tokenize_sst2_t5
 from freeze_strategies import all_but_last_n
 from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5
-from models.lora import LoRAConfig, modify_with_lora
+from models.lora import modify_with_lora
 from optimizer import get_optimizer, get_scheduler
 
 
@@ -112,15 +112,6 @@ class Config:
         self.optimizer["num_steps"] = num_steps
 
         if "trainable_param_names" not in self.optimizer:
-            # if "modifier" in self.model:
-            #     if self.model["modifier"] == "ia3" or self.model["modifier"] == "additive-scaling" or \
-            #             self.model["modifier"] == "ia3-out" or self.model["modifier"] == "ffn-only":
-            #         self.optimizer["trainable_param_names"] = ".*lora_b.*"
-            #     elif self.model["modifier"] == "lora":
-            #         self.optimizer["trainable_param_names"] = ".*layer_norm.*|.*lora_[ab].*"
-            #     else:
-            #         self.optimizer["trainable_param_names"] = ".*"
-            # else:
             self.optimizer["trainable_param_names"] = ".*"
             
         optimizer = get_optimizer(model, self.optimizer)

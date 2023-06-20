@@ -2,69 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import re
-
-class LoRAConfig:
-    def __init__(self, base_model, modifier):
-        if modifier == "ia3":
-            self.lora_scaling_rank = 1
-            self.lora_rank = 0
-            self.lora_init_scale = 0.00
-            if base_model == "bert":
-                self.lora_layers = "k_lin|v_lin|lin1.*"
-            elif base_model == "t0":
-                self.lora_layers = "k|v|wi_1.*"
-            elif base_model == "t5":
-                self.lora_layers = "k|v|wi.*"
-            else:
-                self.lora_layers = "k.*|v.*|lin.*"
-        elif modifier == "additive-scaling":
-            self.lora_scaling_rank = 1
-            self.lora_rank = 0
-            self.lora_init_scale = 0.00
-            if base_model == "bert":
-                self.lora_layers = "out_lin|lin1.*"
-            else:
-                self.lora_layers = "out.*|lin.*"
-        elif modifier == "ia3-out":
-            self.lora_scaling_rank = 1
-            self.lora_rank = 0
-            self.lora_init_scale = 0.00
-            if base_model == "bert":
-                self.lora_layers = "k_lin|v_lin|out_lin"
-            else:
-                self.lora_layers = "out.*|lin.*"
-        elif modifier == "ffn-only":
-            self.lora_scaling_rank = 1
-            self.lora_rank = 0
-            self.lora_init_scale = 0.00
-            if base_model == "bert":
-                self.lora_layers = "lin1|lin2"
-            else:
-                self.lora_layers = "out.*|lin.*"
-        else:
-            self.lora_scaling_rank = 0
-            self.lora_rank = 4
-            self.lora_init_scale = 0.01
-            if base_model == "bert":
-                self.lora_layers = "q_lin|k_lin|v_lin|out_lin|lin.*"
-            elif base_model == "t0":
-                self.lora_layers = "q|k|v|o|w.*"
-            elif base_model == "t5":
-                self.lora_layers = "q|k|v|o|w.*"
-            else:
-                self.lora_layers = "q.*|k.*|v.*|o.*|lin.*"
         
-        if base_model == "bert":
-            if modifier == "ffn-only":
-                self.lora_modules = ".*ffn"
-            else:
-                self.lora_modules = ".*attention|.*ffn"
-        elif base_model == "t5" or base_model == "t0":
-            self.lora_modules = ".*SelfAttention|.*EncDecAttention|.*DenseReluDense"
-        else:
-            self.lora_modules = ".*attention|.*ffn"
-        
-
 # from https://github.com/r-three/t-few
 class LoRALinear(nn.Module):
     def __init__(self, linear_layer, rank, scaling_rank, init_scale, buffer_original):
