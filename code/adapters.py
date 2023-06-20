@@ -60,6 +60,10 @@ class LST(nn.Module):
         self._d_model = get_d_model(self.model)
         self._d_model_ff = get_d_model_ff(self.model)
         self.d_side = self._d_model // self.lst_config["reduction_factor"]
+
+        if self.k > 1:
+            self.positional_embedding = nn.Embedding(self.k, self.d_side)
+
         self.d_side_ff = self._d_model_ff // self.lst_config["reduction_factor"]
 
         self.intermediate_activations = {}
@@ -89,15 +93,28 @@ class LST(nn.Module):
         if self.k % 2 == 0:
             raise RuntimeError("k should be odd for now")
         n = self._n_outputs if not self.is_t5 else self._n_outputs // 2
-        start = max(middle - (self.k - 1) // 2, 0)
-        end = min(middle + (self.k - 1) // 2, n - 1) + 1
+        _start = middle - (self.k - 1) // 2
+        _end = middle + (self.k - 1) // 2
+        start = max(_start, 0)
+        end = min(_end, n - 1) + 1
         outputs = [self.intermediate_activations[f"backbone_{i}"][0] for i in range(start, end)]
+
+        if _start < 0:
+            start_padding = [torch.zeros_like(outputs[0]) for i in range(abs(_start))]
+            outputs = start_padding + outputs
+        
+        if _end > n - 1:
+            end_padding = [torch.zeros_like(outputs[0]) for i in range(_end - n + 1)]
+            outputs = outputs + end_padding
 
         return outputs
 
     def combine_backbone_feats(self, backbone_feats):
-        # TODO: add positional encoding
-        combined = torch.cat(backbone_feats, dim = 1)
+        backbone_feats = torch.stack(backbone_feats)
+        if self.k > 1:
+            backbone_feats += self.positional_embedding.weight.unsqueeze(1).unsqueeze(1)       
+        a, b, c, d = backbone_feats.shape
+        combined = backbone_feats.permute(1, 0, 2, 3).contiguous().view(b, c * a, d)
         return combined
 
     def encoder(self, input):
