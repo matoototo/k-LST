@@ -1,46 +1,62 @@
 import torch
+from torch.nn.functional import binary_cross_entropy_with_logits
 from transformers import Trainer
 from typing import Union, Dict, Any
 import torch.nn as nn
-
-from freeze_strategies import freeze_all, all_but_last_n
+from freeze_strategies import freeze_all
 
 
 class MezoTrainer(Trainer):
-    def __init__(self, *arg, epsilon=1e-3, **kwargs):
-        self.epsilon = epsilon
-        self.seed = 0
-        self.generator = torch.Generator(device='cuda')
+    def __init__(self, *arg, eps=1e-3, pos_label="great", neg_label="terrible", **kwargs):
         super().__init__(*arg, **kwargs)
+        self.eps = eps
+        self.seed = 0
+        self.generator = torch.Generator(device=self.model.device)
+        self.label_encodings = [self.tokenizer.encode(label)[1] for label in [neg_label, pos_label]]
         freeze_all(self.model)
 
     def training_step(self, model: nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
-        model.train()
         inputs = self._prepare_inputs(inputs)
 
-        with torch.no_grad():
-            self.seed = self.generator.seed()
-            self.perturb_parameters(model, self.epsilon)
-            with self.compute_loss_context_manager():
-                l_plus = self.compute_loss(model, inputs).detach()
-            self.perturb_parameters(model, -2 * self.epsilon)
-            with self.compute_loss_context_manager():
-                l_minus = self.compute_loss(model, inputs).detach()
-            self.perturb_parameters(model, self.epsilon)
+        # implements Algorithm 1 of MeZO (https://arxiv.org/abs/2305.17333)
+        self.seed = self.generator.seed()
+        self.perturb_parameters(self.eps)
+        with self.compute_loss_context_manager():
+            l_plus = self.compute_loss(model, inputs)
+        self.perturb_parameters(-2 * self.eps)
+        with self.compute_loss_context_manager():
+            l_minus = self.compute_loss(model, inputs)
+        self.perturb_parameters(self.eps)
 
-        projected_grad = (l_plus - l_minus) / (2 * self.epsilon)
+        projected_grad = (l_plus - l_minus) / (2 * self.eps)
         self.generator.manual_seed(self.seed)
-        for parameter in model.parameters():
-            z = torch.normal(0, 1, parameter.data.size(), generator=self.generator, device='cuda')
-            # setting the gradient and letting optimizer.step() inside _inner_training_loop
-            # gives similar results to updating parameter.data directly
-            # parameter.grad = projected_grad * z
-            parameter.data = parameter.data - self.lr_scheduler.get_last_lr()[0] * projected_grad * z
+        for name, parameter in model.named_parameters():
+            z = torch.normal(0, 1, parameter.data.size(), generator=self.generator, device=self.model.device)
+            # noinspection PyArgumentList
+            parameter -= self._get_learning_rate() * projected_grad * z
 
-        return l_plus
+        return l_plus.detach()
 
-    def perturb_parameters(self, model, scale):
+    def compute_loss(self, model, inputs, return_outputs=False):
+        # remove "labels" before passing inputs through model, then add it back
+        labels = inputs["labels"]
+        inputs = {k: inputs[k] for k in inputs if k != "labels"}
+        outputs = model(**inputs)
+        inputs = inputs | {"labels": labels}
+
+        # for each example, get logits of the label words at the mask token
+        mask_idx = torch.where(inputs["input_ids"] == self.tokenizer.mask_token_id)
+        mask_logits = outputs.logits[mask_idx[0], mask_idx[1]]
+        outputs.logits = mask_logits[:, self.label_encodings]
+
+        # targets with the same shape as logits
+        targets = torch.tensor([[0, 1] if label == 1 else [1, 0] for label in labels], device=self.model.device)
+
+        loss = binary_cross_entropy_with_logits(outputs.logits, targets.float())
+        return (loss, outputs) if return_outputs else loss
+
+    def perturb_parameters(self, scale):
         self.generator.manual_seed(self.seed)
-        for parameter in model.parameters():
-            z = torch.normal(0, 1, parameter.data.size(), generator=self.generator, device='cuda')
-            parameter.data = parameter.data + scale * z
+        for name, parameter in self.model.named_parameters():
+            z = torch.normal(0, 1, parameter.data.size(), generator=self.generator, device=self.model.device)
+            parameter += scale * z

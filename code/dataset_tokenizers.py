@@ -69,3 +69,14 @@ def tokenize_sst2_t5(dataset, tokenizer, max_length):
         tokenizer("positive")["input_ids"] if label == 1 else tokenizer("negative")["input_ids"] for label in
         dataset["label"]]
     return tokenized_inputs
+
+
+def tokenize_sst2_prompt(dataset, tokenizer, max_length):
+    # tokenizing the template in https://arxiv.org/abs/2012.15723 (Table 1)
+    tokenized_inputs = tokenizer(
+        [f"{sentence} It was {tokenizer.mask_token}." for sentence in dataset['sentence']],
+        max_length=max_length,
+        truncation=True
+    )
+
+    return tokenized_inputs

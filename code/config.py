@@ -1,16 +1,16 @@
 import pathlib
 import yaml as PyYAML
 import datasets as huggingface_datasets
-
 from functools import partial
 from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingArguments, \
-    AutoModelForSequenceClassification, AutoModel, T5ForConditionalGeneration
-
-from dataset_tokenizers import tokenize_squad, tokenize_sst2, tokenize_sst2_t5
+    AutoModelForSequenceClassification, AutoModel, T5ForConditionalGeneration, AutoModelForMaskedLM
+from dataset_tokenizers import tokenize_squad, tokenize_sst2, tokenize_sst2_t5, tokenize_sst2_prompt
 from freeze_strategies import all_but_last_n
 from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5
 from models.lora import LoRAConfig, modify_with_lora
 from optimizer import get_optimizer, get_scheduler
+from models.mezo import MezoTrainer
+from transformers import Trainer
 
 
 class Config:
@@ -27,8 +27,10 @@ class Config:
         :return: transformers.PreTrainedModel
         """
         # Return a model for the task based on the config
-        if self.model["base_model"] == "t5-base":
+        if self.model["model_type"] == "t5":
             model = T5ForConditionalGeneration.from_pretrained(self.model["base_model"])
+        elif 'modifier' in self.model and self.model["modifier"] == "mezo":
+            model = AutoModelForMaskedLM.from_pretrained(self.model["base_model"])
         else:
             match self.dataset["name"]:
                 case "squad":
@@ -68,7 +70,8 @@ class Config:
         """Tokenize dataset
         :return: datasets.Dataset, transformers.PreTrainedTokenizer
         """
-        tokenize_func_map = {"squad bert": tokenize_squad, "sst2 bert": tokenize_sst2, "sst2 t5": tokenize_sst2_t5}
+        tokenize_func_map = {"squad bert": tokenize_squad, "sst2 bert": tokenize_sst2, "sst2 t5": tokenize_sst2_t5,
+                             "sst2 bert prompt": tokenize_sst2_prompt}
         tokenize_func = tokenize_func_map[f"{self.dataset['name']} {self.model['model_type']}"]
 
         tokenizer = AutoTokenizer.from_pretrained(self.model["base_model"])
@@ -96,12 +99,13 @@ class Config:
         """Load metric function to be used during evaluation
         :return: function
         """
-        metric_func_map = {"sst2 bert": compute_metrics_sst2_bert, "sst2 t5": compute_metrics_sst2_t5}
+        metric_func_map = {"sst2 bert": compute_metrics_sst2_bert, "sst2 t5": compute_metrics_sst2_t5,
+                           "sst2 bert prompt": compute_metrics_sst2_bert}
         key = f"{self.dataset['name']} {self.model['model_type']}"
         if key not in metric_func_map:
             return None
         return metric_func_map[key]
-        
+
     def load_optimizer(self, model, train_dataset):
         """Load optimizer
         :return: transformers.Optimizer, transformers.Scheduler
@@ -121,7 +125,18 @@ class Config:
                     self.optimizer["trainable_param_names"] = ".*"
             else:
                 self.optimizer["trainable_param_names"] = ".*"
-            
+
         optimizer = get_optimizer(model, self.optimizer)
         scheduler = get_scheduler(optimizer, self.optimizer)
         return optimizer, scheduler
+
+    def load_trainer(self, *args, **kwargs):
+        """Loads an appropriate trainer instance given model modifiers
+        :return: transformers.Trainer
+        """
+        if "modifier" in self.model and self.model["modifier"] == "mezo":
+            if "modifier_args" in self.model:
+                kwargs |= self.model["modifier_args"]
+            return MezoTrainer(*args, **kwargs)
+        else:
+            return Trainer(*args, **kwargs)

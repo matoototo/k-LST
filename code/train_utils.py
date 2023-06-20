@@ -1,7 +1,6 @@
-from transformers import Trainer, DataCollatorWithPadding
+from transformers import DataCollatorWithPadding
 from config import Config
 from update_policy import UpdatePolicyCallback
-from models.mezo import MezoTrainer
 
 
 def train(config: Config):
@@ -30,7 +29,7 @@ def train(config: Config):
     # get optimizer & scheduler
     optimizer = config.load_optimizer(model, train_dataset)
 
-    trainer = MezoTrainer(
+    trainer = config.load_trainer(
         model,
         training_args,
         train_dataset=train_dataset,
@@ -38,7 +37,7 @@ def train(config: Config):
         data_collator=data_collator,
         tokenizer=tokenizer,
         compute_metrics=metric_function,
-        callbacks=[UpdatePolicyCallback()],
+        callbacks=[UpdatePolicyCallback],
         optimizers=optimizer
     )
 
