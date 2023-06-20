@@ -67,14 +67,20 @@ class LoRAConfig:
 
 # from https://github.com/r-three/t-few
 class LoRALinear(nn.Module):
-    def __init__(self, linear_layer, rank, scaling_rank, init_scale):
+    def __init__(self, linear_layer, rank, scaling_rank, init_scale, buffer_original):
         super().__init__()
         self.in_features = linear_layer.in_features
         self.out_features = linear_layer.out_features
         self.rank = rank
         self.scaling_rank = scaling_rank
-        self.weight = linear_layer.weight
-        self.bias = linear_layer.bias
+
+        if buffer_original:
+            self.register_buffer("weight", linear_layer.weight.data)
+            self.register_buffer("bias", linear_layer.bias.data)
+        else:
+            self.weight = linear_layer.weight
+            self.bias = linear_layer.bias
+        
         if self.rank > 0:
             self.lora_a = nn.Parameter(torch.randn(rank, linear_layer.in_features) * init_scale)
             if init_scale < 0:
@@ -121,15 +127,15 @@ class LoRALinear(nn.Module):
 
 def modify_with_lora(transformer, config):
     for m_name, module in dict(transformer.named_modules()).items():
-        if re.fullmatch(config.lora_modules, m_name):
+        if re.fullmatch(config["modules"], m_name):
             for c_name, layer in dict(module.named_children()).items():
-                if re.fullmatch(config.lora_layers, c_name):
+                if re.fullmatch(config["layers"], c_name):
                     assert isinstance(
                         layer, nn.Linear
                     ), f"LoRA can only be applied to torch.nn.Linear, but {layer} is {type(layer)}."
                     setattr(
                         module,
                         c_name,
-                        LoRALinear(layer, config.lora_rank, config.lora_scaling_rank, config.lora_init_scale),
+                        LoRALinear(layer, config["rank"], config["scaling_rank"], config["init_scale"], config["buffer_original"]),
                     )
     return transformer

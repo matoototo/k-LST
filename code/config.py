@@ -38,9 +38,8 @@ class Config:
                 case _:
                     model = AutoModel.from_pretrained(self.model["base_model"])
 
-        if "modifier" in self.model and (self.model["modifier"] == "lora" or self.model["modifier"] == "ia3" \
-                                         or self.model["modifier"] == "additive-scaling" or self.model["modifier"] == "ffn-only"):
-            model = modify_with_lora(model, LoRAConfig(self.model["model_type"], self.model["modifier"]))
+        if "lora" in self.model:
+            model = modify_with_lora(model, self.model["lora"])
 
         return model
 
@@ -113,16 +112,16 @@ class Config:
         self.optimizer["num_steps"] = num_steps
 
         if "trainable_param_names" not in self.optimizer:
-            if "modifier" in self.model:
-                if self.model["modifier"] == "ia3" or self.model["modifier"] == "additive-scaling" or \
-                        self.model["modifier"] == "ia3-out" or self.model["modifier"] == "ffn-only":
-                    self.optimizer["trainable_param_names"] = ".*lora_b.*"
-                elif self.model["modifier"] == "lora":
-                    self.optimizer["trainable_param_names"] = ".*layer_norm.*|.*lora_[ab].*"
-                else:
-                    self.optimizer["trainable_param_names"] = ".*"
-            else:
-                self.optimizer["trainable_param_names"] = ".*"
+            # if "modifier" in self.model:
+            #     if self.model["modifier"] == "ia3" or self.model["modifier"] == "additive-scaling" or \
+            #             self.model["modifier"] == "ia3-out" or self.model["modifier"] == "ffn-only":
+            #         self.optimizer["trainable_param_names"] = ".*lora_b.*"
+            #     elif self.model["modifier"] == "lora":
+            #         self.optimizer["trainable_param_names"] = ".*layer_norm.*|.*lora_[ab].*"
+            #     else:
+            #         self.optimizer["trainable_param_names"] = ".*"
+            # else:
+            self.optimizer["trainable_param_names"] = ".*"
             
         optimizer = get_optimizer(model, self.optimizer)
         scheduler = get_scheduler(optimizer, self.optimizer)
