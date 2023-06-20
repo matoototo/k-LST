@@ -53,6 +53,10 @@ class LST(nn.Module):
         self.is_t5 = "t5" in model.config._name_or_path
         self.lst_config = config
 
+        self.k = self.lst_config["k"] if "k" in self.lst_config else 1
+
+        assert self.k == 1 or self.lst_config["fusion"] == "attention"
+
         self._d_model = get_d_model(self.model)
         self._d_model_ff = get_d_model_ff(self.model)
         self.d_side = self._d_model // self.lst_config["reduction_factor"]
@@ -81,12 +85,28 @@ class LST(nn.Module):
             raise ValueError("Invalid fusion strategy, must be one of 'additive', 'gated', 'attention' or 'dynamic'")
         return output
 
+    def get_backbone_outputs(self, middle):
+        if self.k % 2 == 0:
+            raise RuntimeError("k should be odd for now")
+        n = self._n_outputs if not self.is_t5 else self._n_outputs // 2
+        start = max(middle - (self.k - 1) // 2, 0)
+        end = min(middle + (self.k - 1) // 2, n - 1) + 1
+        outputs = [self.intermediate_activations[f"backbone_{i}"][0] for i in range(start, end)]
+
+        return outputs
+
+    def combine_backbone_feats(self, backbone_feats):
+        # TODO: add positional encoding
+        combined = torch.cat(backbone_feats, dim = 1)
+        return combined
+
     def encoder(self, input):
         n = self._n_outputs if not self.is_t5 else self._n_outputs // 2
         output = self.side_modules["initial_downsample"](input) # [16]
         for i in range(n):
-            backbone_output = self.intermediate_activations[f"backbone_{i}"][0]
-            downsampled_backbone = self.side_modules[f"side_downsample_{i}"](backbone_output)
+            backbone_outputs = self.get_backbone_outputs(i)
+            downsampled_backbones = [self.side_modules[f"side_downsample_{i}"](bo) for bo in backbone_outputs]
+            downsampled_backbone = self.combine_backbone_feats(downsampled_backbones)
             output = self.fuse(downsampled_backbone, output, i)
             output = self.side_modules[f"ladder_block_{i}"](output)
         return output
