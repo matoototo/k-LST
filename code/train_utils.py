@@ -1,6 +1,36 @@
 from transformers import Trainer, DataCollatorWithPadding
+from transformers.trainer_callback import TrainerControl, TrainerState
+from transformers.training_args import TrainingArguments
 from config import Config
-from update_policy import UpdatePolicyCallback
+from update_policy import UpdatePolicyCallback, TrainerCallback
+
+import torch
+from torch.profiler import profile, record_function
+
+
+class ProfilingCallback(TrainerCallback):
+        def __init__(self):
+            self.profiler = None
+
+        def on_train_begin(self, args, state, control, model=None, **kwargs):
+            self.profiler = profile(activities=[
+                torch.profiler.ProfilerActivity.CPU, 
+                torch.profiler.ProfilerActivity.CUDA],
+                record_shapes=True, 
+                profile_memory=True, 
+                with_stack=True)
+
+        def on_step_begin(self, args, state, control, **kwargs):
+            self.profiler.__enter__()
+            self.record_function = record_function("model_inference")
+            self.record_function.__enter__()
+
+        def on_step_end(self, args, state, control, **kwargs):
+            self.record_function.__exit__(None, None, None)
+            self.profiler.__exit__(None, None, None)
+
+        def on_train_end(self, args, state, control, **kwargs):
+            self.profiler.export_chrome_trace("trace.json")
 
 
 def train(config: Config):
@@ -37,10 +67,12 @@ def train(config: Config):
         data_collator=data_collator,
         tokenizer=tokenizer,
         compute_metrics=metric_function,
-        callbacks=[UpdatePolicyCallback(model)],
+        callbacks=[UpdatePolicyCallback(model), ProfilingCallback()],
         optimizers=optimizer
     )
 
+    
+    
     # Perform validation before training
     print("Evaluating before training (epoch 0)...")
     metrics = trainer.evaluate()
