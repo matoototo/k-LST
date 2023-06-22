@@ -18,6 +18,7 @@ adapter:
         reduction_factor: 8
         fusion: "attention" # "additive", "dynamic", "gated" or "attention"
         freeze_head: true
+        k: 3
 
 optimizer:
     name: "adamw"
