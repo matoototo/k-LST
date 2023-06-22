@@ -61,6 +61,7 @@ class LST(nn.Module):
         self.lst_config = config
 
         self.k = self.lst_config["k"] if "k" in self.lst_config else 1
+        if "downsample" not in self.lst_config: self.lst_config["downsample"] = "linear"
 
         assert self.k == 1 or self.lst_config["fusion"] == "attention"
 
