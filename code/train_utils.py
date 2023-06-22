@@ -33,7 +33,7 @@ class ProfilingCallback(TrainerCallback):
             self.profiler.export_chrome_trace("trace.json")
 
 
-def train(config: Config):
+def train(config: Config, profile: bool = False):
     # ========= MODEL ========= #
     # Load model and apply freezing and adapter strategies
     model = config.load_model()
@@ -67,11 +67,12 @@ def train(config: Config):
         data_collator=data_collator,
         tokenizer=tokenizer,
         compute_metrics=metric_function,
-        callbacks=[UpdatePolicyCallback(model), ProfilingCallback()],
+        callbacks=[UpdatePolicyCallback(model)],
         optimizers=optimizer
     )
 
-    
+    if profile:
+        trainer.add_callback(ProfilingCallback())
     
     # Perform validation before training
     print("Evaluating before training (epoch 0)...")
@@ -86,8 +87,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=pathlib.Path, help="Path to config file", required=True)
+    parser.add_argument("--profile", action="store_true", help="Profile training")
     args = parser.parse_args()
 
     config = Config(args.config)
 
-    train(config)
+    train(config, profile=args.profile)
