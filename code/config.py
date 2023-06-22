@@ -1,3 +1,4 @@
+import torch
 import pathlib
 import yaml as PyYAML
 import datasets as huggingface_datasets
@@ -11,6 +12,7 @@ from freeze_strategies import all_but_last_n
 from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5
 from models.lora import LoRAConfig, modify_with_lora
 from optimizer import get_optimizer, get_scheduler
+from adapters import ladder_side_tuning, ladder_side_distillation
 
 
 class Config:
@@ -21,6 +23,7 @@ class Config:
         self.freeze = yaml["freeze"]
         self.dataset = yaml["dataset"]
         self.optimizer = yaml["optimizer"]
+        self.adapter = yaml["adapter"]
 
     def load_model(self):
         """Load model for training
@@ -30,13 +33,12 @@ class Config:
         if self.model["base_model"] == "t5-base":
             model = T5ForConditionalGeneration.from_pretrained(self.model["base_model"])
         else:
-            match self.dataset["name"]:
-                case "squad":
-                    model = AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
-                case "sst2":
-                    model = AutoModelForSequenceClassification.from_pretrained(self.model["base_model"])
-                case _:
-                    model = AutoModel.from_pretrained(self.model["base_model"])
+            if self.dataset["name"] == "squad":
+                return AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
+            elif self.dataset["name"] == "sst2":
+                return AutoModelForSequenceClassification.from_pretrained(self.model["base_model"])
+            else:
+                return AutoModel.from_pretrained(self.model["base_model"])
 
         if "modifier" in self.model and (self.model["modifier"] == "lora" or self.model["modifier"] == "ia3" \
                                          or self.model["modifier"] == "additive-scaling" or self.model["modifier"] == "ffn-only"):
@@ -53,6 +55,15 @@ class Config:
         # Pass freeze["args"] to the strategy function
         strategy_map = {"all_but_last_n": all_but_last_n}
         strategy_map[self.freeze["strategy"]](model, **self.freeze["args"])
+
+    def add_adapters(self, model):
+        """Add adapters to model
+        :return: None
+        """
+        if self.adapter["strategy"] == "none": return model
+        if "args" not in self.adapter: self.adapter["args"] = {}
+        strategy_map = {"lst": ladder_side_tuning, "lst_distill": ladder_side_distillation}
+        return strategy_map[self.adapter["strategy"]](model, **self.adapter["args"]).to("cuda:0" if torch.cuda.is_available() else "cpu")
 
     def load_dataset(self):
         """Load dataset and take subset if specified

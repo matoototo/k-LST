@@ -16,5 +16,5 @@ tensorboard --logdir results/runs
 ```
 Run training with config file
 ```bash
-python3 ./train_utils.py --config example.yaml
+python3 ./train_utils.py --config configs/example.yaml
 ```

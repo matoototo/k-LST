@@ -8,10 +8,16 @@ model:
     model_type: "t5"
 
 freeze:
-    strategy: "none"
+    strategy: "all_but_last_n"
+    args:
+        n: 0
 
 adapter:
-    strategy: "none"
+    strategy: "lst"
+    args:
+        reduction_factor: 8
+        fusion: "attention" # "additive", "dynamic", "gated" or "attention"
+        freeze_head: true
 
 optimizer:
     name: "adamw"
@@ -27,5 +33,4 @@ train:
     per_device_eval_batch_size: 16
     output_dir: "results"
     evaluation_strategy: "epoch"
-
 ...
