@@ -1,4 +1,3 @@
-import pathlib
 import yaml as PyYAML
 import datasets as huggingface_datasets
 from functools import partial
@@ -14,7 +13,7 @@ from transformers import Trainer
 
 
 class Config:
-    def __init__(self, path: pathlib.Path):
+    def __init__(self, path):
         yaml = PyYAML.load(open(path).read(), Loader=PyYAML.FullLoader)
         self.model = yaml["model"]
         self.train = yaml["train"]
