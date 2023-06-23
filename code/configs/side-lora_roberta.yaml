@@ -4,14 +4,14 @@ dataset:
     name: "sst2"
 
 model:
-    base_model: "distilbert-base-cased"
+    base_model: "roberta-large"
     model_type: "bert"
     lora:
         scaling_rank: 0
         rank: 4
         init_scale: 0.01
-        layers: "q_lin|k_lin|v_lin|out_lin|lin.*"
-        modules: ".*attention|.*ffn"
+        layers: "query|key|value|dense"
+        modules: ".*self|.*output|.*intermediate"
         buffer_original: True
 
 freeze:
@@ -23,7 +23,7 @@ optimizer:
     weight_decay: 0.01
     scheduler: "linear_decay_with_warmup"
     warmup_ratio: 0.06
-    trainable_param_names: ".*classifier.*|.*layer_norm.*|.*lora_[ab].*"
+    trainable_param_names: "classifier.dense.*|.*out_proj.*|.*LayerNorm.*|.*lora_[ab].*"
 
 train:
     num_train_epochs: 5

@@ -63,7 +63,8 @@ def get_scheduler(optimizer, config):
     :return:
     """
     scheduler_name = config["scheduler"]
-    num_warmup_steps = config["num_steps"] * config["warmup_ratio"]
+    if "warmup_ratio" in config:
+        num_warmup_steps = config["num_steps"] * config["warmup_ratio"]
 
     if scheduler_name == "polynomial_decay_with_warmup":
         return get_polynomial_decay_schedule_with_warmup(optimizer, num_warmup_steps, config["num_steps"])
