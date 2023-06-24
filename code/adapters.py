@@ -99,7 +99,7 @@ class LST(nn.Module):
 
     def side_downsampled(self, i):
         backbone_output = self.intermediate_activations[f"backbone_{i}"][0]
-        downsampled_backbone = self.side_modules[f"downsample_{i}"](backbone_output)
+        downsampled_backbone = self.side_modules[f"side_downsample_{i}"](backbone_output)
         return downsampled_backbone
 
     def get_backbone_outputs(self, middle):
