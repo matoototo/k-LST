@@ -40,7 +40,8 @@ class Config:
                 case _:
                     model = AutoModel.from_pretrained(self.model["base_model"])
 
-        if "modifier" in self.model and (self.model["modifier"] == "lora" or self.model["modifier"] == "ia3"):
+        if "modifier" in self.model and (self.model["modifier"] == "lora" or self.model["modifier"] == "ia3" \
+                                         or self.model["modifier"] == "additive-scaling" or self.model["modifier"] == "ffn-only"):
             model = modify_with_lora(model, LoRAConfig(self.model["model_type"], self.model["modifier"]))
 
         return model
@@ -127,7 +128,8 @@ class Config:
 
         if "trainable_param_names" not in self.optimizer:
             if "modifier" in self.model:
-                if self.model["modifier"] == "ia3":
+                if self.model["modifier"] == "ia3" or self.model["modifier"] == "additive-scaling" or \
+                        self.model["modifier"] == "ia3-out" or self.model["modifier"] == "ffn-only":
                     self.optimizer["trainable_param_names"] = ".*lora_b.*"
                 elif self.model["modifier"] == "lora":
                     self.optimizer["trainable_param_names"] = ".*layer_norm.*|.*lora_[ab].*"
