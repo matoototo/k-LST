@@ -1,6 +1,7 @@
 import yaml as PyYAML
 import datasets as huggingface_datasets
 from functools import partial
+from datasets import concatenate_datasets
 from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingArguments, \
     AutoModelForSequenceClassification, AutoModel, T5ForConditionalGeneration, AutoModelForMaskedLM
 from dataset_tokenizers import tokenize_squad, tokenize_sst2, tokenize_sst2_t5, tokenize_sst2_prompt
@@ -63,6 +64,16 @@ class Config:
             dataset["train"] = dataset["train"].select(range(self.dataset["n_train"]))
         if "n_val" in self.dataset:
             dataset["validation"] = dataset["validation"].select(range(self.dataset["n_val"]))
+        if "k" in self.dataset:
+            k = self.dataset["k"]
+            pos = dataset["train"].filter(lambda example: example["label"] == 0).shuffle()
+            neg = dataset["train"].filter(lambda example: example["label"] == 1).shuffle()
+            train_pos = pos.select(range(k))
+            train_neg = neg.select(range(k))
+            val_pos = pos.select(range(k, 2 * k))
+            val_neg = neg.select(range(k, 2 * k))
+            dataset["train"] = concatenate_datasets([train_pos, train_neg]).shuffle()
+            dataset["validation"] = concatenate_datasets([val_pos, val_neg]).shuffle()
         return dataset
 
     def tokenize_dataset(self, dataset, model):
