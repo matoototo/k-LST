@@ -58,6 +58,7 @@ class LST(nn.Module):
         super().__init__()
         self.__dict__["model"] = model
         self.is_t5 = "t5" in model.config._name_or_path
+        self.is_roberta = "roberta" in model.config._name_or_path
         self.lst_config = config
 
         self.k = self.lst_config["k"] if "k" in self.lst_config else 1
@@ -184,7 +185,9 @@ class LST(nn.Module):
         self.intermediate_activations = OrderedDict()
 
         if not self.is_t5:
-            output = output[:, 0, :]  # CLS token
+            # roberta is already returning 1 token pooled token for classification
+            if not self.is_roberta:
+                output = output[:, 0, :]  # CLS token
             if labels is not None:
                 loss_fct = nn.CrossEntropyLoss()
                 loss = loss_fct(output, labels)
