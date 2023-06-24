@@ -5,8 +5,8 @@ def freeze_all(model):
 
 
 def unfreeze_last(model, unfreeze_n=1):
-    # Unfreeze the last n layers
     if unfreeze_n > 0:
+        # Unfreeze the last n layers
         if "distilbert" in model.name_or_path:
             # DistilBERT
             for param in model.distilbert.transformer.layer[-unfreeze_n:].parameters():
@@ -16,7 +16,7 @@ def unfreeze_last(model, unfreeze_n=1):
             for param in model.bert.encoder.layer[-unfreeze_n:].parameters():
                 param.requires_grad = True
 
-    # QA head
+    # QA head if it exists
     if hasattr(model, "qa_outputs"):
         for param in model.qa_outputs.parameters():
             param.requires_grad = True

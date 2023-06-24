@@ -5,10 +5,10 @@ from update_policy import UpdatePolicyCallback
 
 def train(config: Config, resume_from_checkpoint):
     # ========= MODEL ========= #
-    # Load model and apply freezing strategy
+    # Load model and apply freezing and adapter strategies
     model = config.load_model()
     config.freeze_model(model)
-
+    model = config.add_adapters(model)
     # ========= DATA ========= #
     dataset = config.load_dataset()
 

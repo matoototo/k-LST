@@ -11,6 +11,9 @@ model:
 freeze:
     strategy: "none"
 
+adapter:
+    strategy: "none"
+
 optimizer:
     name: "adafactor"
     lr: 0.003
