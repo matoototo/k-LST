@@ -20,7 +20,7 @@ class UpdatePolicyCallback(TensorBoardCallback):
                 for d in dirs:
                     rmtree(f"{args.logging_dir}/{d}")
                 if len(files) > 0:
-                    files.pop(0)
+                    files.pop()
                     for file in files:
                         os.remove(f"{args.logging_dir}/{file}")
 

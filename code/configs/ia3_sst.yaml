@@ -11,7 +11,7 @@ model:
 freeze:
     strategy: "none"
  
- adapter:
+adapter:
     strategy: "none"
 
 optimizer:
