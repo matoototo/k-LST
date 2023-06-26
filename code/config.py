@@ -10,8 +10,8 @@ from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5
 from models.lora import LoRAConfig, modify_with_lora
 from optimizer import get_optimizer, get_scheduler
 from adapters import ladder_side_tuning, ladder_side_distillation
-from models.mezo import MezoTrainer
 from transformers import Trainer
+from trainers import MezoTrainer, PromptTrainer
 
 
 class Config:
@@ -24,25 +24,27 @@ class Config:
         self.optimizer = yaml["optimizer"]
         self.adapter = yaml["adapter"]
 
-    def load_model(self):
+    def load_model(self, checkpoint):
         """Load model for training
         :return: transformers.PreTrainedModel
         """
         # Return a model for the task based on the config
+        base_model = checkpoint if checkpoint is not None else self.model["base_model"]
         if self.model["model_type"] == "t5":
-            model = T5ForConditionalGeneration.from_pretrained(self.model["base_model"])
-        elif 'modifier' in self.model and self.model["modifier"] == "mezo":
-            model = AutoModelForMaskedLM.from_pretrained(self.model["base_model"])
+            model = T5ForConditionalGeneration.from_pretrained(base_model)
+        elif "prompt" in self.model["model_type"]:
+            model = AutoModelForMaskedLM.from_pretrained(base_model)
         else:
             if self.dataset["name"] == "squad":
-                return AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
+                return AutoModelForQuestionAnswering.from_pretrained(base_model)
             elif self.dataset["name"] == "sst2":
-                return AutoModelForSequenceClassification.from_pretrained(self.model["base_model"])
+                return AutoModelForSequenceClassification.from_pretrained(base_model)
             else:
-                return AutoModel.from_pretrained(self.model["base_model"])
+                return AutoModel.from_pretrained(base_model)
 
-        if "modifier" in self.model and (self.model["modifier"] == "lora" or self.model["modifier"] == "ia3" \
-                                         or self.model["modifier"] == "additive-scaling" or self.model["modifier"] == "ffn-only"):
+        if "modifier" in self.model and (self.model["modifier"] == "lora" or self.model["modifier"] == "ia3"
+                                         or self.model["modifier"] == "additive-scaling" or self.model[
+                                             "modifier"] == "ffn-only"):
             model = modify_with_lora(model, LoRAConfig(self.model["model_type"], self.model["modifier"]))
 
         return model
@@ -64,7 +66,7 @@ class Config:
         if self.adapter["strategy"] == "none": return model
         if "args" not in self.adapter: self.adapter["args"] = {}
         strategy_map = {"lst": ladder_side_tuning, "lst_distill": ladder_side_distillation}
-        return strategy_map[self.adapter["strategy"]](model, **self.adapter["args"]).to("cuda:0" if torch.cuda.is_available() else "cpu")
+        return strategy_map[self.adapter["strategy"]](model, **self.adapter["args"] | self.model)
 
     def load_dataset(self):
         """Load dataset and take subset if specified
@@ -156,9 +158,14 @@ class Config:
         """Loads an appropriate trainer instance given model modifiers
         :return: transformers.Trainer
         """
-        if "modifier" in self.model and self.model["modifier"] == "mezo":
+        if "modifier" in self.model:
             if "modifier_args" in self.model:
                 kwargs |= self.model["modifier_args"]
-            return MezoTrainer(*args, **kwargs)
+            if self.model["modifier"] == "mezo":
+                return MezoTrainer(*args, **kwargs)
+            elif self.model["modifier"] == "prompt":
+                return PromptTrainer(*args, **kwargs)
+            else:
+                return Trainer(*args, **kwargs)
         else:
             return Trainer(*args, **kwargs)

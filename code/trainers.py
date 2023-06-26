@@ -1,19 +1,40 @@
 import torch
-from torch.nn.functional import binary_cross_entropy_with_logits
-from transformers import Trainer
-from typing import Union, Dict, Any
 import torch.nn as nn
-from freeze_strategies import freeze_all
+from transformers import Trainer
+from torch.nn.functional import binary_cross_entropy_with_logits
+from typing import Union, Dict, Any
 
 
-class MezoTrainer(Trainer):
-    def __init__(self, *arg, eps=1e-3, pos_label="great", neg_label="terrible", **kwargs):
+class PromptTrainer(Trainer):
+    def __init__(self, *arg, neg_label="terrible", pos_label="great", **kwargs):
+        super().__init__(*arg, **kwargs)
+        self.label_encodings = [self.tokenizer.encode(label)[1] for label in [neg_label, pos_label]]
+
+    def compute_loss(self, model, inputs, return_outputs=False):
+        # remove "labels" before passing inputs through model, then add it back
+        labels = inputs["labels"]
+        inputs = {k: inputs[k] for k in inputs if k != "labels"}
+        outputs = model(**inputs)
+        inputs = inputs | {"labels": labels}
+
+        # for each example, get logits of the label words at the mask token
+        mask_idx = torch.where(inputs["input_ids"] == self.tokenizer.mask_token_id)
+        mask_logits = outputs.logits[mask_idx[0], mask_idx[1]]
+        outputs.logits = mask_logits[:, self.label_encodings]
+
+        # targets with the same shape as logits
+        targets = torch.tensor([[0, 1] if label == 1 else [1, 0] for label in labels], device=self.model.device)
+
+        loss = binary_cross_entropy_with_logits(outputs.logits, targets.float())
+        return (loss, outputs) if return_outputs else loss
+
+
+class MezoTrainer(PromptTrainer):
+    def __init__(self, *arg, eps=1e-3, **kwargs):
         super().__init__(*arg, **kwargs)
         self.eps = eps
         self.seed = 0
         self.generator = torch.Generator(device=self.model.device)
-        self.label_encodings = [self.tokenizer.encode(label)[1] for label in [neg_label, pos_label]]
-        freeze_all(self.model)
 
     def training_step(self, model: nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
         inputs = self._prepare_inputs(inputs)
@@ -36,24 +57,6 @@ class MezoTrainer(Trainer):
             parameter -= self._get_learning_rate() * projected_grad * z
 
         return l_plus.detach()
-
-    def compute_loss(self, model, inputs, return_outputs=False):
-        # remove "labels" before passing inputs through model, then add it back
-        labels = inputs["labels"]
-        inputs = {k: inputs[k] for k in inputs if k != "labels"}
-        outputs = model(**inputs)
-        inputs = inputs | {"labels": labels}
-
-        # for each example, get logits of the label words at the mask token
-        mask_idx = torch.where(inputs["input_ids"] == self.tokenizer.mask_token_id)
-        mask_logits = outputs.logits[mask_idx[0], mask_idx[1]]
-        outputs.logits = mask_logits[:, self.label_encodings]
-
-        # targets with the same shape as logits
-        targets = torch.tensor([[0, 1] if label == 1 else [1, 0] for label in labels], device=self.model.device)
-
-        loss = binary_cross_entropy_with_logits(outputs.logits, targets.float())
-        return (loss, outputs) if return_outputs else loss
 
     def perturb_parameters(self, scale):
         self.generator.manual_seed(self.seed)

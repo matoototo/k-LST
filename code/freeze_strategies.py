@@ -24,6 +24,8 @@ def unfreeze_last(model, unfreeze_n=1):
     if hasattr(model, "classifier"):
         for param in model.classifier.parameters():
             param.requires_grad = True
+
+    if hasattr(model, "pre_classifier"):
         for param in model.pre_classifier.parameters():
             param.requires_grad = True
 

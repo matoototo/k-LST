@@ -3,10 +3,10 @@ from config import Config
 from update_policy import UpdatePolicyCallback
 
 
-def train(config: Config, resume_from_checkpoint):
+def train(config: Config, resume, checkpoint):
     # ========= MODEL ========= #
     # Load model and apply freezing and adapter strategies
-    model = config.load_model()
+    model = config.load_model(checkpoint)
     config.freeze_model(model)
     model = config.add_adapters(model)
     # ========= DATA ========= #
@@ -46,7 +46,7 @@ def train(config: Config, resume_from_checkpoint):
     metrics = trainer.evaluate()
     print(metrics)
 
-    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+    trainer.train(resume_from_checkpoint=resume)
 
 
 if __name__ == "__main__":
@@ -54,11 +54,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=pathlib.Path, help="Path to config file", required=True)
-    parser.add_argument("--resume_from_checkpoint", help="Trainer resumes from latest checkpoint (default: False)",
-                        action="store_true")
+    parser.add_argument("--resume", help="When set, trainer resumes from latest checkpoint", action="store_true")
+    parser.add_argument("--checkpoint", help="Path to checkpoint directory to load the model from")
     args = parser.parse_args()
 
     config = Config(args.config)
-    resume_from_checkpoint = args.resume_from_checkpoint
+    resume = args.resume
+    checkpoint = args.checkpoint
 
-    train(config, resume_from_checkpoint)
+    train(config, resume, checkpoint)
