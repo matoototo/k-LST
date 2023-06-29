@@ -1,4 +1,4 @@
-from transformers import DataCollatorWithPadding
+from transformers import DataCollatorWithPadding, DataCollatorForTokenClassification, DefaultDataCollator
 from config import Config
 from update_policy import UpdatePolicyCallback
 
@@ -15,7 +15,11 @@ def train(config: Config, resume, checkpoint):
     # Tokenize the dataset with our tokenization function
     tokenized_dataset, tokenizer = config.tokenize_dataset(dataset, model)
     # Data collator for dynamic padding. Tokenizer itself does not pad.
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    if "labels" in tokenized_dataset["train"][0] and len(tokenized_dataset["train"][0]["labels"]) > 1:
+        # This pads labels as well.
+        data_collator = DataCollatorForTokenClassification(tokenizer=tokenizer)
+    else:
+        data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
     # ========= TRAINING ========= #
     training_args = config.load_training_args()

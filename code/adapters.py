@@ -200,7 +200,8 @@ class LST(nn.Module):
             output = lm_logits
             return ((loss,) + ([output],)) if loss is not None else output
         else:
-            #output = output[:, 0, :]  # CLS token
+            if len(output.shape) == 3:
+                output = output[:, 0, :]  # CLS token
             if labels is not None:
                 loss_fct = nn.CrossEntropyLoss()
                 loss = loss_fct(output, labels)
@@ -217,9 +218,9 @@ class LST(nn.Module):
         else:
             raise AttributeError("Model does not have a QA, LM or classifier head")
 
-        freeze = self.lst_config["freeze"] if "freeze" in self.lst_config else True
+        freeze = self.lst_config["freeze_head"] if "freeze_head" in self.lst_config else True
         for param in head.parameters():
-            param.requires_grad = False if freeze else True
+            param.requires_grad = not freeze
 
         return head
 
@@ -304,7 +305,8 @@ class LSTDistillation(LST):
 
         self.intermediate_activations = OrderedDict()
 
-        output = output[:, 0, :]  # CLS token
+        if len(output.shape) == 3:
+            output = output[:, 0, :]  # CLS token
 
         if labels is not None:
             loss_fct = nn.CrossEntropyLoss()

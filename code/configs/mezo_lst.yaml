@@ -5,11 +5,7 @@ dataset:
 
 model:
     base_model: "roberta-large"
-    model_type: "bert prompt"
-    modifier: "prompt"
-    modifier_args:
-        pos_label: "great"
-        neg_label: "terrible"
+    model_type: "bert"
 
 freeze:
     strategy: "all_but_last_n"
@@ -21,6 +17,7 @@ adapter:
     args:
         reduction_factor: 8
         fusion: "attention" # "additive", "dynamic", "gated" or "attention"
+        freeze_head: true
 
 optimizer:
     name: "adamw"
@@ -36,7 +33,8 @@ train:
     per_device_eval_batch_size: 16
     output_dir: "results"
     evaluation_strategy: "steps"
-    eval_steps: 500
-    logging_steps: 10
-    save_strategy: "no"
+    save_steps: 1000
+    save_strategy: "steps"
+    eval_steps: 1000
+    logging_steps: 100
 ...

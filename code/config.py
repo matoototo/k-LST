@@ -11,7 +11,7 @@ from models.lora import LoRAConfig, modify_with_lora
 from optimizer import get_optimizer, get_scheduler
 from adapters import ladder_side_tuning, ladder_side_distillation
 from transformers import Trainer
-from trainers import MezoTrainer, PromptTrainer
+from trainers import MezoTrainer
 
 
 class Config:
@@ -106,9 +106,20 @@ class Config:
 
         tokenize_partial = partial(tokenize_func, tokenizer=tokenizer, max_length=max_length)
         # Remove columns of the tokenized dataset that the model does not accept
-        columns_to_remove = {"squad": dataset["train"].column_names, "sst2": ["idx", "sentence"]}
+        columns_to_remove = []
+        if self.dataset["name"] == "squad":
+            columns_to_remove = dataset["train"].column_names
+        elif self.dataset["name"] == "sst2":
+            columns_to_remove = ["idx", "sentence"]
+            if "modifier" in self.model and self.model["modifier"] in ["mezo", "prompt"]:
+                columns_to_remove.append("label")
+                if "modifier_args" in self.model:
+                    if "neg_label" in self.model["modifier_args"]:
+                        tokenize_partial = partial(tokenize_partial, neg_label=self.model["modifier_args"]["neg_label"])
+                    if "pos_label" in self.model["modifier_args"]:
+                        tokenize_partial = partial(tokenize_partial, pos_label=self.model["modifier_args"]["pos_label"])
         return (
-            dataset.map(tokenize_partial, batched=True, remove_columns=columns_to_remove[self.dataset["name"]]),
+            dataset.map(tokenize_partial, batched=True, remove_columns=columns_to_remove),
             tokenizer
         )
 
@@ -122,8 +133,7 @@ class Config:
         """Load metric function to be used during evaluation
         :return: function
         """
-        metric_func_map = {"sst2 bert": compute_metrics_sst2_bert, "sst2 t5": compute_metrics_sst2_t5,
-                           "sst2 bert prompt": compute_metrics_sst2_bert}
+        metric_func_map = {"sst2 bert": compute_metrics_sst2_bert, "sst2 t5": compute_metrics_sst2_t5}
         key = f"{self.dataset['name']} {self.model['model_type']}"
         if key not in metric_func_map:
             return None
@@ -158,14 +168,9 @@ class Config:
         """Loads an appropriate trainer instance given model modifiers
         :return: transformers.Trainer
         """
-        if "modifier" in self.model:
-            if "modifier_args" in self.model:
-                kwargs |= self.model["modifier_args"]
-            if self.model["modifier"] == "mezo":
-                return MezoTrainer(*args, **kwargs)
-            elif self.model["modifier"] == "prompt":
-                return PromptTrainer(*args, **kwargs)
-            else:
-                return Trainer(*args, **kwargs)
+        if "modifier" in self.model and self.model["modifier"] == "mezo":
+            if "modifier_args" in self.model and "eps" in self.model["modifier_args"]:
+                kwargs |= {"eps": self.model["modifier_args"]["eps"]}
+            return MezoTrainer(*args, **kwargs)
         else:
             return Trainer(*args, **kwargs)
