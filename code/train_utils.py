@@ -3,10 +3,10 @@ from config import Config
 from update_policy import UpdatePolicyCallback
 
 
-def train(config: Config, resume, checkpoint):
+def train(config: Config, resume_from_checkpoint, model_path):
     # ========= MODEL ========= #
     # Load model and apply freezing and adapter strategies
-    model = config.load_model(checkpoint)
+    model = config.load_model(model_path)
     config.freeze_model(model)
     model = config.add_adapters(model)
     # ========= DATA ========= #
@@ -45,12 +45,13 @@ def train(config: Config, resume, checkpoint):
         optimizers=optimizer
     )
 
-    # Perform validation before training
-    print("Evaluating before training (epoch 0)...")
-    metrics = trainer.evaluate()
-    print(metrics)
+    if not resume_from_checkpoint:
+        # Perform validation before training
+        print("Evaluating before training (epoch 0)...")
+        metrics = trainer.evaluate()
+        print(metrics)
 
-    trainer.train(resume_from_checkpoint=resume)
+    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
 
 if __name__ == "__main__":
@@ -58,12 +59,18 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=pathlib.Path, help="Path to config file", required=True)
-    parser.add_argument("--resume", help="When set, trainer resumes from latest checkpoint", action="store_true")
-    parser.add_argument("--checkpoint", help="Path to checkpoint directory to load the model from")
+    parser.add_argument("--resume_from_checkpoint", help="When set to True, trainer resumes from latest checkpoint. "
+                                                         "When set to a path to a checkpoint, trainer resumes from "
+                                                         "the given checkpoint.", default=False)
+    parser.add_argument("--model_path", help="Path to local checkpoint directory to initialize the model from.")
     args = parser.parse_args()
 
     config = Config(args.config)
-    resume = args.resume
-    checkpoint = args.checkpoint
+    resume_from_checkpoint = args.resume_from_checkpoint
+    if resume_from_checkpoint == "True":
+        resume_from_checkpoint = True
+    elif resume_from_checkpoint == "False":
+        resume_from_checkpoint = False
+    model_path = args.model_path
 
-    train(config, resume, checkpoint)
+    train(config, resume_from_checkpoint, model_path)

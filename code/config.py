@@ -24,12 +24,12 @@ class Config:
         self.optimizer = yaml["optimizer"]
         self.adapter = yaml["adapter"]
 
-    def load_model(self, checkpoint):
+    def load_model(self, model_path):
         """Load model for training
         :return: transformers.PreTrainedModel
         """
         # Return a model for the task based on the config
-        base_model = checkpoint if checkpoint is not None else self.model["base_model"]
+        base_model = model_path if model_path is not None else self.model["base_model"]
         if self.model["model_type"] == "t5":
             model = T5ForConditionalGeneration.from_pretrained(base_model)
         elif "prompt" in self.model["model_type"]:
