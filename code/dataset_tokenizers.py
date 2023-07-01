@@ -75,7 +75,7 @@ def tokenize_sst2_prompt(dataset, tokenizer, max_length, neg_label="terrible", p
     # tokenizing the template in https://arxiv.org/abs/2012.15723 (Table 1)
     tokenized_inputs = tokenizer(
         [f"{sentence}. It was {tokenizer.mask_token}." for sentence in dataset['sentence']],
-        text_target=[f"{entry[0]}. It was {pos_label if entry[1] == 1 else neg_label}." for entry in
+        text_target=[f"{entry[0]} It was {pos_label if entry[1] == 1 else neg_label}." for entry in
                      zip(dataset['sentence'], dataset['label'])],
         max_length=max_length,
         truncation=True

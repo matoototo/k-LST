@@ -65,7 +65,8 @@ class Config:
         if self.adapter["strategy"] == "none": return model
         if "args" not in self.adapter: self.adapter["args"] = {}
         strategy_map = {"lst": ladder_side_tuning, "lst_distill": ladder_side_distillation}
-        return strategy_map[self.adapter["strategy"]](model, **self.adapter["args"] | self.model)
+        return strategy_map[self.adapter["strategy"]](model,
+                                                      **self.adapter["args"] | {"model_type": self.model["model_type"]})
 
     def load_dataset(self):
         """Load dataset and take subset if specified
@@ -110,7 +111,7 @@ class Config:
             columns_to_remove = dataset["train"].column_names
         elif self.dataset["name"] == "sst2":
             columns_to_remove = ["idx", "sentence"]
-            if "modifier" in self.model and self.model["modifier"] in ["mezo", "prompt"]:
+            if "modifier" in self.model and self.model["modifier"] == "mezo" or "prompt" in self.model["model_type"]:
                 columns_to_remove.append("label")
                 if "modifier_args" in self.model:
                     if "neg_label" in self.model["modifier_args"]:
