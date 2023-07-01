@@ -6,7 +6,13 @@ dataset:
 model:
     base_model: "distilbert-base-cased"
     model_type: "bert"
-    modifier: "lora"
+    lora:
+        scaling_rank: 0
+        rank: 4
+        init_scale: 0.01
+        layers: "q_lin|k_lin|v_lin|out_lin|lin.*"
+        modules: ".*attention|.*ffn"
+        buffer_original: False
 
 freeze:
     strategy: "none"
@@ -15,12 +21,12 @@ adapter:
     strategy: "none"
 
 optimizer:
-    name: "adafactor"
-    lr: 0.003
-    weight_decay: 0
-    scale_parameter: True
+    name: "adamw"
+    lr: 0.00008
+    weight_decay: 0.01
     scheduler: "linear_decay_with_warmup"
     warmup_ratio: 0.06
+    trainable_param_names: ".*classifier.*|.*layer_norm.*|.*lora_[ab].*"
 
 train:
     num_train_epochs: 5

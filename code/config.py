@@ -7,7 +7,7 @@ from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingA
 from dataset_tokenizers import tokenize_squad, tokenize_sst2, tokenize_sst2_t5, tokenize_sst2_prompt
 from freeze_strategies import all_but_last_n
 from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5
-from models.lora import LoRAConfig, modify_with_lora
+from models.lora import modify_with_lora
 from optimizer import get_optimizer, get_scheduler
 from adapters import ladder_side_tuning, ladder_side_distillation
 from transformers import Trainer
@@ -35,17 +35,16 @@ class Config:
         elif "prompt" in self.model["model_type"]:
             model = AutoModelForMaskedLM.from_pretrained(base_model)
         else:
-            if self.dataset["name"] == "squad":
-                return AutoModelForQuestionAnswering.from_pretrained(base_model)
-            elif self.dataset["name"] == "sst2":
-                return AutoModelForSequenceClassification.from_pretrained(base_model)
-            else:
-                return AutoModel.from_pretrained(base_model)
+            match self.dataset["name"]:
+                case "squad":
+                    model = AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
+                case "sst2":
+                    model = AutoModelForSequenceClassification.from_pretrained(self.model["base_model"])
+                case _:
+                    model = AutoModel.from_pretrained(self.model["base_model"])
 
-        if "modifier" in self.model and (self.model["modifier"] == "lora" or self.model["modifier"] == "ia3"
-                                         or self.model["modifier"] == "additive-scaling" or self.model[
-                                             "modifier"] == "ffn-only"):
-            model = modify_with_lora(model, LoRAConfig(self.model["model_type"], self.model["modifier"]))
+        if "lora" in self.model:
+            model = modify_with_lora(model, self.model["lora"])
 
         return model
 
@@ -149,17 +148,8 @@ class Config:
         self.optimizer["num_steps"] = num_steps
 
         if "trainable_param_names" not in self.optimizer:
-            if "modifier" in self.model:
-                if self.model["modifier"] == "ia3" or self.model["modifier"] == "additive-scaling" or \
-                        self.model["modifier"] == "ia3-out" or self.model["modifier"] == "ffn-only":
-                    self.optimizer["trainable_param_names"] = ".*lora_b.*"
-                elif self.model["modifier"] == "lora":
-                    self.optimizer["trainable_param_names"] = ".*layer_norm.*|.*lora_[ab].*"
-                else:
-                    self.optimizer["trainable_param_names"] = ".*"
-            else:
-                self.optimizer["trainable_param_names"] = ".*"
-
+            self.optimizer["trainable_param_names"] = ".*"
+            
         optimizer = get_optimizer(model, self.optimizer)
         scheduler = get_scheduler(optimizer, self.optimizer)
         return optimizer, scheduler

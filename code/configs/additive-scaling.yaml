@@ -6,9 +6,18 @@ dataset:
 model:
     base_model: "distilbert-base-cased"
     model_type: "bert"
-    modifier: "additive-scaling"
+    lora:
+        scaling_rank: 1
+        rank: 0
+        init_scale: 0.00
+        layers: "out_lin|lin1.*"
+        modules: ".*attention|.*ffn"
+        buffer_original: False
 
 freeze:
+    strategy: "none"
+
+adapter:
     strategy: "none"
 
 optimizer:
@@ -18,6 +27,7 @@ optimizer:
     scale_parameter: True
     scheduler: "linear_decay_with_warmup"
     warmup_ratio: 0.06
+    trainable_param_names: ".*lora_b.*"
 
 train:
     num_train_epochs: 5

@@ -2,79 +2,23 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import re
-
-class LoRAConfig:
-    def __init__(self, base_model, modifier):
-        if modifier == "ia3":
-            self.lora_scaling_rank = 1
-            self.lora_rank = 0
-            self.lora_init_scale = 0.00
-            if base_model == "bert":
-                self.lora_layers = "k_lin|v_lin|lin1.*"
-            elif base_model == "t0":
-                self.lora_layers = "k|v|wi_1.*"
-            elif base_model == "t5":
-                self.lora_layers = "k|v|wi.*"
-            else:
-                self.lora_layers = "k.*|v.*|lin.*"
-        elif modifier == "additive-scaling":
-            self.lora_scaling_rank = 1
-            self.lora_rank = 0
-            self.lora_init_scale = 0.00
-            if base_model == "bert":
-                self.lora_layers = "out_lin|lin1.*"
-            else:
-                self.lora_layers = "out.*|lin.*"
-        elif modifier == "ia3-out":
-            self.lora_scaling_rank = 1
-            self.lora_rank = 0
-            self.lora_init_scale = 0.00
-            if base_model == "bert":
-                self.lora_layers = "k_lin|v_lin|out_lin"
-            else:
-                self.lora_layers = "out.*|lin.*"
-        elif modifier == "ffn-only":
-            self.lora_scaling_rank = 1
-            self.lora_rank = 0
-            self.lora_init_scale = 0.00
-            if base_model == "bert":
-                self.lora_layers = "lin1|lin2"
-            else:
-                self.lora_layers = "out.*|lin.*"
-        else:
-            self.lora_scaling_rank = 0
-            self.lora_rank = 4
-            self.lora_init_scale = 0.01
-            if base_model == "bert":
-                self.lora_layers = "q_lin|k_lin|v_lin|out_lin|lin.*"
-            elif base_model == "t0":
-                self.lora_layers = "q|k|v|o|w.*"
-            elif base_model == "t5":
-                self.lora_layers = "q|k|v|o|w.*"
-            else:
-                self.lora_layers = "q.*|k.*|v.*|o.*|lin.*"
         
-        if base_model == "bert":
-            if modifier == "ffn-only":
-                self.lora_modules = ".*ffn"
-            else:
-                self.lora_modules = ".*attention|.*ffn"
-        elif base_model == "t5" or base_model == "t0":
-            self.lora_modules = ".*SelfAttention|.*EncDecAttention|.*DenseReluDense"
-        else:
-            self.lora_modules = ".*attention|.*ffn"
-        
-
 # from https://github.com/r-three/t-few
 class LoRALinear(nn.Module):
-    def __init__(self, linear_layer, rank, scaling_rank, init_scale):
+    def __init__(self, linear_layer, rank, scaling_rank, init_scale, buffer_original):
         super().__init__()
         self.in_features = linear_layer.in_features
         self.out_features = linear_layer.out_features
         self.rank = rank
         self.scaling_rank = scaling_rank
-        self.weight = linear_layer.weight
-        self.bias = linear_layer.bias
+
+        if buffer_original:
+            self.register_buffer("weight", linear_layer.weight.data)
+            self.register_buffer("bias", linear_layer.bias.data)
+        else:
+            self.weight = linear_layer.weight
+            self.bias = linear_layer.bias
+        
         if self.rank > 0:
             self.lora_a = nn.Parameter(torch.randn(rank, linear_layer.in_features) * init_scale)
             if init_scale < 0:
@@ -121,15 +65,15 @@ class LoRALinear(nn.Module):
 
 def modify_with_lora(transformer, config):
     for m_name, module in dict(transformer.named_modules()).items():
-        if re.fullmatch(config.lora_modules, m_name):
+        if re.fullmatch(config["modules"], m_name):
             for c_name, layer in dict(module.named_children()).items():
-                if re.fullmatch(config.lora_layers, c_name):
+                if re.fullmatch(config["layers"], c_name):
                     assert isinstance(
                         layer, nn.Linear
                     ), f"LoRA can only be applied to torch.nn.Linear, but {layer} is {type(layer)}."
                     setattr(
                         module,
                         c_name,
-                        LoRALinear(layer, config.lora_rank, config.lora_scaling_rank, config.lora_init_scale),
+                        LoRALinear(layer, config["rank"], config["scaling_rank"], config["init_scale"], config["buffer_original"]),
                     )
     return transformer
