@@ -4,14 +4,21 @@ dataset:
     name: "sst2"
 
 model:
-    base_model: "t5-base"
-    model_type: "t5"
+    base_model: "distilbert-base-cased"
+    model_type: "bert"
 
 freeze:
-    strategy: "none"
+    strategy: "all_but_last_n"
+    args:
+        n: 0
 
 adapter:
-    strategy: "none"
+    strategy: "lst"
+    args:
+        reduction_factor: 8
+        fusion: "attention" # "additive", "dynamic", "gated" or "attention"
+        freeze_head: true
+        k: 3
 
 optimizer:
     name: "adamw"
@@ -27,5 +34,4 @@ train:
     per_device_eval_batch_size: 16
     output_dir: "results"
     evaluation_strategy: "epoch"
-
 ...

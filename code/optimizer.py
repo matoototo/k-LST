@@ -1,5 +1,5 @@
 import torch.optim as optim
-from transformers import Adafactor
+from transformers import Adafactor, get_constant_schedule
 import re
 from collections import defaultdict
 import torch
@@ -76,6 +76,8 @@ def get_scheduler(optimizer, config):
         return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, config["num_steps"])
     elif scheduler_name == "adafactor":
         return AdafactorSchedule(optimizer, config["lr"])
+    elif scheduler_name == "constant":
+        return get_constant_schedule(optimizer)
     else:
         raise ValueError("Invalid Scheduler Name %s" % scheduler_name)
 
