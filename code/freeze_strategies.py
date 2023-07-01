@@ -5,7 +5,7 @@ def freeze_all(model):
 
 
 def unfreeze_last(model, unfreeze_n=1):
-    if unfreeze_n != 0:
+    if unfreeze_n > 0:
         # Unfreeze the last n layers
         if "distilbert" in model.name_or_path:
             # DistilBERT
@@ -20,9 +20,15 @@ def unfreeze_last(model, unfreeze_n=1):
     if hasattr(model, "qa_outputs"):
         for param in model.qa_outputs.parameters():
             param.requires_grad = True
-    elif hasattr(model, "classifier"):
+
+    if hasattr(model, "classifier"):
         for param in model.classifier.parameters():
             param.requires_grad = True
+
+    if hasattr(model, "pre_classifier"):
+        for param in model.pre_classifier.parameters():
+            param.requires_grad = True
+
 
 def all_but_last_n(model, n=1):
     freeze_all(model)
