@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torch.nn import TransformerEncoderLayer, TransformerDecoderLayer
+from torch.nn import TransformerEncoderLayer
 from collections import OrderedDict
 from transformers.modeling_outputs import SequenceClassifierOutput
 
@@ -35,29 +35,23 @@ def get_d_model_ff(model):
         return model.config.hidden_dim
     elif hasattr(model.config, "intermediate_size"):
         return model.config.intermediate_size
-    elif hasattr(model.config, "d_ff"): # T5
-        return model.config.d_ff
     else:
         raise ValueError("Model does not have d_model_ff attribute, check model.config")
 
 def is_block(model, module_name):
-    is_t5 = "t5" in model.config._name_or_path
     is_bert = "bert" in model.config._name_or_path
     module_name = module_name.split(".")
     if len(module_name) < 2: return False
-    if is_t5: # Ends with block.{i}
-        return module_name[-2] == "block" and module_name[-1].isdigit()
-    elif is_bert: # Ends with layer.{i}
+    if is_bert: # Ends with layer.{i}
         return module_name[-2] == "layer" and module_name[-1].isdigit()
     else:
-        raise ValueError("Only T5 and BERT models are supported")
+        raise ValueError("Only BERT models are supported")
 
 
 class LST(nn.Module):
     def __init__(self, model, config):
         super().__init__()
         self.__dict__["model"] = model
-        self.is_t5 = "t5" in model.config._name_or_path
         self.is_roberta = "roberta" in model.config._name_or_path
         self.lst_config = config
 
@@ -106,7 +100,7 @@ class LST(nn.Module):
     def get_backbone_outputs(self, middle):
         if self.k % 2 == 0:
             raise RuntimeError("k should be odd for now")
-        n = self._n_outputs if not self.is_t5 else self._n_outputs // 2
+        n = self._n_outputs
         _start = middle - (self.k - 1) // 2
         _end = middle + (self.k - 1) // 2
         start = max(_start, 0)
@@ -133,23 +127,13 @@ class LST(nn.Module):
         return combined
 
     def encoder(self, input):
-        n = self._n_outputs if not self.is_t5 else self._n_outputs // 2
+        n = self._n_outputs
         output = self.side_modules["initial_downsample"](input) # [16]
         for i in range(n):
             downsampled_backbones = self.get_backbone_outputs(i)
             downsampled_backbone = self.combine_backbone_feats(downsampled_backbones)
             output = self.fuse(downsampled_backbone, output, i)
             output = self.side_modules[f"ladder_block_{i}"](output)
-        return output
-    
-    def decoder(self, input, encoder_out):
-        offset = self._n_outputs // 2 if self.is_t5 else 0
-        output = self.side_modules["initial_downsample_dec"](input)
-        for i in range(offset, self._n_outputs):
-            backbone_output = self.intermediate_activations[f"backbone_{i}"][0]
-            downsampled_backbone = self.side_modules[f"side_downsample_{i}"](backbone_output)
-            output = self.fuse(downsampled_backbone, output, i)
-            output = self.side_modules[f"ladder_block_{i}"](output, encoder_out)
         return output
 
     def forward(self,
@@ -169,52 +153,31 @@ class LST(nn.Module):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,):
-        if self.is_t5:
-            _ = self.model(input_ids = input_ids, attention_mask = attention_mask, decoder_input_ids = decoder_input_ids, decoder_attention_mask = decoder_attention_mask, head_mask = head_mask, decoder_head_mask = decoder_head_mask, cross_attn_head_mask = cross_attn_head_mask, encoder_outputs = encoder_outputs, past_key_values = past_key_values, inputs_embeds = inputs_embeds, decoder_inputs_embeds = decoder_inputs_embeds, labels = labels, use_cache = use_cache, output_attentions = output_attentions, output_hidden_states = output_hidden_states, return_dict = return_dict)
-        else:
-            _ = self.model(input_ids, attention_mask) # Just to get the intermediate activations
+        _ = self.model(input_ids, attention_mask) # Just to get the intermediate activations
         input = self.intermediate_activations["embeddings"]
         output = self.encoder(input)
-        if self.is_t5:
-            dec_input = self.intermediate_activations["embeddings_dec"]
-            masked_enc_out = output * attention_mask.unsqueeze(-1)
-            output = self.decoder(dec_input, masked_enc_out)
         output = self.side_modules["side_upsample"](output)
         output = self.model_head(output)
 
         self.intermediate_activations = OrderedDict()
 
-        if not self.is_t5:
-            # roberta is already returning 1 token pooled token for classification
-            if not self.is_roberta:
-                output = output[:, 0, :]  # CLS token
-            if labels is not None:
-                loss_fct = nn.CrossEntropyLoss()
-                loss = loss_fct(output, labels)
-            if labels is not None:
-                return SequenceClassifierOutput(loss=loss, logits=output)
-            return SequenceClassifierOutput(logits=output)
-        else:
-            loss = None
-            lm_logits = output
-            if labels is not None:
-                loss_fct = lambda x, y: F.cross_entropy(x, y, ignore_index=-100)
-                labels = labels.to(lm_logits.device)
-                _lm_logits = lm_logits[:, 0, :]
-                labels = labels[:, 0]
-                loss = loss_fct(_lm_logits, labels)
-            output = lm_logits
-            return ((loss,) + ([output],)) if loss is not None else output
+        # roberta is already returning 1 token pooled token for classification
+        if not self.is_roberta:
+            output = output[:, 0, :]  # CLS token
+        if labels is not None:
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(output, labels)
+        if labels is not None:
+            return SequenceClassifierOutput(loss=loss, logits=output)
+        return SequenceClassifierOutput(logits=output)
 
     def _get_model_head(self, model, freeze = True):
-        if self.is_t5:
-            head = model.lm_head
-        elif hasattr(model, "qa_outputs"):
+        if hasattr(model, "qa_outputs"):
             head = model.qa_outputs
         elif hasattr(model, "classifier"):
             head = model.classifier
         else:
-            raise AttributeError("Model does not have a QA head or classifier, nor is it a T5 model")
+            raise AttributeError("Model does not have a QA head or classifier.")
 
         for param in head.parameters():
             param.requires_grad = False if freeze else True
@@ -224,14 +187,12 @@ class LST(nn.Module):
     def _create_side_modules(self, n):
         side_modules = OrderedDict()
         side_modules["initial_downsample"] = nn.Linear(self._d_model, self.d_side)
-        if self.is_t5:
-            side_modules["initial_downsample_dec"] = nn.Linear(self._d_model, self.d_side)
         for i in range(n):
             if self.lst_config["downsample"] == "adaptive_avg_pool1d":
                 side_modules[f"side_downsample_{i}"] = nn.AdaptiveAvgPool1d(self.d_side)
             else:
                 side_modules[f"side_downsample_{i}"] = nn.Linear(self._d_model, self.d_side)
-            block_type = TransformerEncoderLayer if i < n // 2 or (not self.is_t5) else TransformerDecoderLayer
+            block_type = TransformerEncoderLayer
             side_modules[f"ladder_block_{i}"] = block_type(self.d_side, 4, self.d_side_ff, batch_first=True)
             if self.lst_config["fusion"] == "dynamic":
                 side_modules[f"fuse_{i}"] = nn.Linear(self.d_side, 1)
@@ -249,7 +210,7 @@ class LST(nn.Module):
             if is_block(self.model, name):
                 module.register_forward_hook(self._hook(f"backbone_{n}"))
                 n += 1
-            elif name.split(".")[-1] == "embeddings" or name.split(".")[-1] == "shared": # BERT, T5
+            elif name.split(".")[-1] == "embeddings" or name.split(".")[-1] == "shared": # BERT
                 module.register_forward_hook(self._hook("embeddings"))
         return n
     
@@ -274,7 +235,6 @@ class LST(nn.Module):
 class LSTDistillation(LST):
     def __init__(self, model, config):
         super().__init__(model, config)
-        assert not self.is_t5, "T5 distillation is not supported yet"
         assert config["downsample"] == "adaptive_avg_pool1d", "Can't have learned downsample for distillation"
         self.distillation_weight = config["distillation_weight"]
 
