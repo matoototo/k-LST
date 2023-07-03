@@ -56,6 +56,7 @@ class LST(nn.Module):
         self.lst_config = config
 
         self.k = self.lst_config["k"] if "k" in self.lst_config else 1
+        self.dropout_p = self.lst_config["dropout"]
         if "downsample" not in self.lst_config: self.lst_config["downsample"] = "linear"
 
         assert self.k == 1 or self.lst_config["fusion"] == "attention"
@@ -116,6 +117,13 @@ class LST(nn.Module):
             end_padding = [torch.zeros_like(outputs[0]) for i in range(_end - n + 1)]
             outputs = outputs + end_padding
 
+        if self.training:
+            length = len(outputs)
+            mask = (torch.rand(length) >= self.dropout_p).float()
+            mask = mask.to(outputs[0].device)
+            for i in range(length):
+                outputs[i] *= mask[i]
+    
         return outputs
 
     def combine_backbone_feats(self, backbone_feats):
