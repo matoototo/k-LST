@@ -8,6 +8,7 @@ from dataset_tokenizers import tokenize_squad, tokenize_sst2, tokenize_sst2_t5, 
 from freeze_strategies import all_but_last_n
 from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5
 from models.lora import modify_with_lora
+from models.lord import modify_with_lord
 from optimizer import get_optimizer, get_scheduler
 from adapters import ladder_side_tuning, ladder_side_distillation
 from transformers import Trainer
@@ -45,6 +46,9 @@ class Config:
 
         if "lora" in self.model:
             model = modify_with_lora(model, self.model["lora"])
+        
+        if "lord" in self.model:
+            model = modify_with_lord(model, self.model["lord"])
 
         return model
 
