@@ -6,7 +6,8 @@ from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingA
     AutoModelForSequenceClassification, AutoModel, T5ForConditionalGeneration, AutoModelForMaskedLM
 from dataset_tokenizers import tokenize_squad, tokenize_sst2, tokenize_sst2_t5, tokenize_sst2_prompt
 from freeze_strategies import all_but_last_n
-from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5
+from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5, preprocess_logits_sst2_prompt, \
+    compute_metrics_sst2_bert_prompt
 from models.lora import modify_with_lora
 from optimizer import get_optimizer, get_scheduler
 from adapters import ladder_side_tuning, ladder_side_distillation
@@ -129,15 +130,31 @@ class Config:
         """
         return TrainingArguments(**self.train)
 
-    def load_metric_function(self):
-        """Load metric function to be used during evaluation
-        :return: function
+    def load_metric_function(self, tokenizer):
+        """Load metric function and the function to preprocess logits to be used for evaluation
+        :return: function, function
         """
-        metric_func_map = {"sst2 bert": compute_metrics_sst2_bert, "sst2 t5": compute_metrics_sst2_t5}
-        key = f"{self.dataset['name']} {self.model['model_type']}"
-        if key not in metric_func_map:
-            return None
-        return metric_func_map[key]
+        metric_func = None
+        preprocess_logits_func = None
+        if self.dataset['name'] == "sst2":
+            if "bert" in self.model['model_type']:
+                if "prompt" in self.model['model_type']:
+                    metric_func = partial(compute_metrics_sst2_bert_prompt, tokenizer=tokenizer)
+                    preprocess_logits_func = partial(preprocess_logits_sst2_prompt, tokenizer=tokenizer)
+                    if "modifier_args" in self.model:
+                        if "neg_label" in self.model["modifier_args"]:
+                            neg_label = self.model["modifier_args"]["neg_label"]
+                            metric_func = partial(metric_func, neg_label=neg_label)
+                            preprocess_logits_func = partial(preprocess_logits_func, neg_label=neg_label)
+                        if "pos_label" in self.model["modifier_args"]:
+                            pos_label = self.model["modifier_args"]["pos_label"]
+                            metric_func = partial(metric_func, pos_label=pos_label)
+                            preprocess_logits_func = partial(preprocess_logits_func, pos_label=pos_label)
+                else:
+                    metric_func = compute_metrics_sst2_bert
+            elif "t5" in self.model['model_type']:
+                metric_func = compute_metrics_sst2_t5
+        return metric_func, preprocess_logits_func
 
     def load_optimizer(self, model, train_dataset):
         """Load optimizer
@@ -150,7 +167,7 @@ class Config:
 
         if "trainable_param_names" not in self.optimizer:
             self.optimizer["trainable_param_names"] = ".*"
-            
+
         optimizer = get_optimizer(model, self.optimizer)
         scheduler = get_scheduler(optimizer, self.optimizer)
         return optimizer, scheduler
