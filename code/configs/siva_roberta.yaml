@@ -1,0 +1,36 @@
+%YAML 1.2
+---
+dataset:
+    name: "sst2"
+
+model:
+    base_model: "roberta-large"
+    model_type: "bert"
+    siva:
+        decomposition_rank: 448
+        training_rank: 4
+        layers: "query|key|value|dense"
+        modules: ".*self|.*output|.*intermediate"
+
+freeze:
+    strategy: "none"
+
+adapter:
+    strategy: "none"
+
+optimizer:
+    name: "adamw"
+    lr: 0.00005
+    weight_decay: 0.01
+    scheduler: "linear_decay_with_warmup"
+    warmup_ratio: 0.06
+    trainable_param_names: "classifier.dense.*|.*out_proj.*|.*LayerNorm.*|.*siva_[uv]_t.*"
+
+train:
+    num_train_epochs: 10
+    per_device_train_batch_size: 16
+    per_device_eval_batch_size: 16
+    output_dir: "results"
+    evaluation_strategy: "epoch"
+
+...

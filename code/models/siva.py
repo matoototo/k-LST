@@ -11,7 +11,6 @@ class SiVALinear(nn.Module):
         self.decomposition_rank = decomposition_rank
         self.training_rank = training_rank
 
-        # self.weight = linear_layer.weight
         self.bias = linear_layer.bias
         
         U, S, V = torch.linalg.svd(linear_layer.weight)
@@ -23,13 +22,12 @@ class SiVALinear(nn.Module):
 
         self.siva_u_d = nn.Parameter(U[:, training_rank:decomposition_rank])
         self.siva_v_d = nn.Parameter(V[training_rank:decomposition_rank, :])
-        
-
+    
     def forward(self, input):
-
-        siva_u = torch.cat((self.siva_u_t, self.siva_u_d), dim=1)
-        siva_v = torch.cat((self.siva_v_t, self.siva_v_d), dim=0)
-        weight = siva_u * self.siva_s @ siva_v
+        
+        siva_train = self.siva_u_t * self.siva_s[:self.training_rank] @ self.siva_v_t
+        siva_decomposition = self.siva_u_d * self.siva_s[self.training_rank:self.decomposition_rank] @ self.siva_v_d
+        weight = siva_train + siva_decomposition
 
         return F.linear(input, weight, self.bias)
 
