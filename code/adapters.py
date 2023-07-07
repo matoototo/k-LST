@@ -187,7 +187,12 @@ class LST(nn.Module):
         self.intermediate_activations = OrderedDict()
 
         if "prompt" in self.model_type:
-            return MaskedLMOutput(logits=output)
+            loss = None
+            if labels is not None:
+                labels = labels.to(output.device)
+                loss_fct = nn.CrossEntropyLoss()
+                loss = loss_fct(output.view(-1, self.config.vocab_size), labels.view(-1))
+            return MaskedLMOutput(loss=loss, logits=output)
         elif "t5" in self.model_type:
             loss = None
             lm_logits = output

@@ -4,7 +4,8 @@ from functools import partial
 from datasets import concatenate_datasets
 from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingArguments, \
     AutoModelForSequenceClassification, AutoModel, T5ForConditionalGeneration, AutoModelForMaskedLM
-from dataset_tokenizers import tokenize_squad, tokenize_sst2, tokenize_sst2_t5, tokenize_sst2_prompt
+from dataset_tokenizers import tokenize_squad, tokenize_sst2, tokenize_sst2_t5, tokenize_sst2_prompt, \
+    tokenize_sst2_prompt_no_label
 from freeze_strategies import all_but_last_n
 from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5, preprocess_logits_sst2_prompt, \
     compute_metrics_sst2_bert_prompt
@@ -113,12 +114,20 @@ class Config:
         elif self.dataset["name"] == "sst2":
             columns_to_remove = ["idx", "sentence"]
             if "modifier" in self.model and self.model["modifier"] == "mezo" or "prompt" in self.model["model_type"]:
-                columns_to_remove.append("label")
-                if "modifier_args" in self.model:
-                    if "neg_label" in self.model["modifier_args"]:
-                        tokenize_partial = partial(tokenize_partial, neg_label=self.model["modifier_args"]["neg_label"])
-                    if "pos_label" in self.model["modifier_args"]:
-                        tokenize_partial = partial(tokenize_partial, pos_label=self.model["modifier_args"]["pos_label"])
+                if self.adapter["strategy"] == "none":
+                    # MeZO
+                    columns_to_remove.append("label")
+                    if "modifier_args" in self.model:
+                        if "neg_label" in self.model["modifier_args"]:
+                            tokenize_partial = partial(tokenize_partial,
+                                                       neg_label=self.model["modifier_args"]["neg_label"])
+                        if "pos_label" in self.model["modifier_args"]:
+                            tokenize_partial = partial(tokenize_partial,
+                                                       pos_label=self.model["modifier_args"]["pos_label"])
+                else:
+                    # MeZO + LST
+                    tokenize_func = tokenize_sst2_prompt_no_label
+                    tokenize_partial = partial(tokenize_func, tokenizer=tokenizer, max_length=max_length)
         return (
             dataset.map(tokenize_partial, batched=True, remove_columns=columns_to_remove),
             tokenizer
@@ -176,7 +185,7 @@ class Config:
         """Loads an appropriate trainer instance given model modifiers
         :return: transformers.Trainer
         """
-        if "modifier" in self.model and self.model["modifier"] == "mezo":
+        if "modifier" in self.model and self.model["modifier"] == "mezo" and self.adapter["strategy"] == "none":
             if "modifier_args" in self.model and "eps" in self.model["modifier_args"]:
                 kwargs |= {"eps": self.model["modifier_args"]["eps"]}
             return MezoTrainer(*args, **kwargs)

@@ -82,3 +82,13 @@ def tokenize_sst2_prompt(dataset, tokenizer, max_length, neg_label="terrible", p
     )
 
     return tokenized_inputs
+
+
+def tokenize_sst2_prompt_no_label(dataset, tokenizer, max_length):
+    tokenized_inputs = tokenizer(
+        [f"{sentence} It was {tokenizer.mask_token}." for sentence in dataset['sentence']],
+        max_length=max_length,
+        truncation=True
+    )
+
+    return tokenized_inputs
