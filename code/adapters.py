@@ -63,6 +63,7 @@ class LST(nn.Module):
         self.lst_config = config
 
         self.k = self.lst_config["k"] if "k" in self.lst_config else 1
+        self.dropout_p = self.lst_config["dropout"]
         if "downsample" not in self.lst_config: self.lst_config["downsample"] = "linear"
 
         assert self.k == 1 or self.lst_config["fusion"] == "attention"
@@ -99,6 +100,11 @@ class LST(nn.Module):
             raise ValueError("Invalid fusion strategy, must be one of 'additive', 'gated', 'attention' or 'dynamic'")
         return output
 
+    def side_downsampled(self, i):
+        backbone_output = self.intermediate_activations[f"backbone_{i}"][0]
+        downsampled_backbone = self.side_modules[f"side_downsample_{i}"](backbone_output)
+        return downsampled_backbone
+
     def get_backbone_outputs(self, middle):
         if self.k % 2 == 0:
             raise RuntimeError("k should be odd for now")
@@ -107,7 +113,8 @@ class LST(nn.Module):
         _end = middle + (self.k - 1) // 2
         start = max(_start, 0)
         end = min(_end, n - 1) + 1
-        outputs = [self.intermediate_activations[f"backbone_{i}"][0] for i in range(start, end)]
+
+        outputs = [self.side_downsampled(i) for i in range(start, end)]
 
         if _start < 0:
             start_padding = [torch.zeros_like(outputs[0]) for i in range(abs(_start))]
@@ -116,6 +123,13 @@ class LST(nn.Module):
         if _end > n - 1:
             end_padding = [torch.zeros_like(outputs[0]) for i in range(_end - n + 1)]
             outputs = outputs + end_padding
+
+        if self.training:
+            length = len(outputs)
+            mask = (torch.rand(length) >= self.dropout_p).float()
+            mask = mask.to(outputs[0].device)
+            for i in range(length):
+                outputs[i] *= mask[i]
 
         return outputs
 
@@ -131,8 +145,7 @@ class LST(nn.Module):
         n = self._n_outputs if not "t5" in self.model_type else self._n_outputs // 2
         output = self.side_modules["initial_downsample"](input)  # [16]
         for i in range(n):
-            backbone_outputs = self.get_backbone_outputs(i)
-            downsampled_backbones = [self.side_modules[f"side_downsample_{i}"](bo) for bo in backbone_outputs]
+            downsampled_backbones = self.get_backbone_outputs(i)
             downsampled_backbone = self.combine_backbone_feats(downsampled_backbones)
             output = self.fuse(downsampled_backbone, output, i)
             output = self.side_modules[f"ladder_block_{i}"](output)
