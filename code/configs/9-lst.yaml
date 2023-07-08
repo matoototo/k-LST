@@ -18,16 +18,17 @@ adapter:
     args:
         reduction_factor: 8
         fusion: "attention" # "additive", "dynamic", "gated" or "attention"
-        freeze_head: true
-        k: 1
+        freeze_head: false
+        dropout: 0.2
+        k: 9
 
 optimizer:
     name: "adamw"
-    lr: 0.00002
+    lr: 0.00012
     weight_decay: 0.01
     scale_parameter: True
     scheduler: "linear_decay_with_warmup"
-    warmup_ratio: 0.06
+    warmup_ratio: 0.12
 
 train:
     num_train_epochs: 10
@@ -35,9 +36,9 @@ train:
     per_device_eval_batch_size: 16
     output_dir: "results"
     evaluation_strategy: "steps"
+    logging_steps: 100
     eval_steps: 500
     save_strategy: "steps"
-    logging_steps: 100
     save_steps: 1000
     save_total_limit: 1
 ...
