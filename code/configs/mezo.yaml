@@ -34,11 +34,11 @@ train:
     per_device_eval_batch_size: 16
     output_dir: "results"
     evaluation_strategy: "steps"
-    eval_steps: 200
-    logging_steps: 20
+    eval_steps: 500
+    logging_steps: 100
     save_total_limit: 5
     save_strategy: "steps"
-    save_steps: 200
+    save_steps: 1000
     max_steps: 100000
 
 ...

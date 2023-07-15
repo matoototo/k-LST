@@ -11,6 +11,10 @@ def unfreeze_last(model, unfreeze_n=1):
             # DistilBERT
             for param in model.distilbert.transformer.layer[-unfreeze_n:].parameters():
                 param.requires_grad = True
+        elif "roberta" in model.name_or_path:
+            # RoBERTa
+            for param in model.roberta.encoder.layer[-unfreeze_n:].parameters():
+                param.requires_grad = True
         elif "bert" in model.name_or_path:
             # BERT
             for param in model.bert.encoder.layer[-unfreeze_n:].parameters():
