@@ -5,7 +5,7 @@ dataset:
 
 model:
     base_model: "roberta-large"
-    model_type: "bert prompt"
+    model_type: "bert"
     modifier: "mezo"
     modifier_args:
         eps: 0.001

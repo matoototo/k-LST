@@ -6,7 +6,7 @@ dataset:
 model:
     base_model: "roberta-large"
     model_type: "bert"
-    modifier: "mezo"
+    modifier: "with_prompt"
 
 freeze:
     strategy: "all_but_last_n"

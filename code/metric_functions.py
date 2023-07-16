@@ -40,7 +40,7 @@ def compute_metrics_sst2_t5(eval_preds):
     return accuracy | f1
 
 
-def compute_metrics_sst2_bert_prompt(eval_preds, tokenizer, neg_label="terrible", pos_label="great"):
+def compute_metrics_sst2_bert_prompt(eval_preds, tokenizer, neg_label="terrible"):
     metric_accuracy = evaluate.load("accuracy")
     metric_f1 = evaluate.load("f1")
     logits, labels = eval_preds
