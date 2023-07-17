@@ -40,11 +40,11 @@ class Config:
         else:
             match self.dataset["name"]:
                 case "squad":
-                    model = AutoModelForQuestionAnswering.from_pretrained(self.model["base_model"])
+                    model = AutoModelForQuestionAnswering.from_pretrained(base_model)
                 case "sst2":
-                    model = AutoModelForSequenceClassification.from_pretrained(self.model["base_model"])
+                    model = AutoModelForSequenceClassification.from_pretrained(base_model)
                 case _:
-                    model = AutoModel.from_pretrained(self.model["base_model"])
+                    model = AutoModel.from_pretrained(base_model)
 
         if "lora" in self.model:
             model = modify_with_lora(model, self.model["lora"])
