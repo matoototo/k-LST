@@ -11,6 +11,7 @@ model:
         eps: 0.001
         pos_label: "great"
         neg_label: "terrible"
+        prompt: "[SENTENCE] It was [MASK]."
 
 freeze:
     strategy: "all_but_last_n"

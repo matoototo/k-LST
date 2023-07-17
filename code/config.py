@@ -116,15 +116,24 @@ class Config:
             columns_to_remove = dataset["train"].column_names
         elif self.dataset["name"] == "sst2":
             columns_to_remove = ["idx", "sentence"]
-            if self.modifier in ["mezo", "prompt_based"]:
-                columns_to_remove.append("label")
-                if "modifier_args" in self.model:
-                    if "neg_label" in self.model["modifier_args"]:
-                        tokenize_partial = partial(tokenize_partial,
-                                                   neg_label=self.model["modifier_args"]["neg_label"])
-                    if "pos_label" in self.model["modifier_args"]:
-                        tokenize_partial = partial(tokenize_partial,
-                                                   pos_label=self.model["modifier_args"]["pos_label"])
+            if self.modifier in ["mezo", "prompt_based", "with_prompt"]:
+                # Read the prompt from config
+                if "modifier_args" in self.model and "prompt" in self.model["modifier_args"]:
+                    prompt = self.model["modifier_args"]["prompt"]
+                    assert "[SENTENCE]" in prompt and "[MASK]" in prompt, \
+                        'Prompt needs to contain "[SENTENCE]" and "[MASK]".'
+                    tokenize_partial = partial(tokenize_partial, prompt=prompt)
+                if self.modifier != "with_prompt":
+                    # Only for prompt-based FT we remove 'label' as the tokenizer adds 'labels'
+                    # and potentially we read positive and negative label words from config
+                    columns_to_remove.append("label")
+                    if "modifier_args" in self.model:
+                        if "neg_label" in self.model["modifier_args"]:
+                            tokenize_partial = partial(tokenize_partial,
+                                                       neg_label=self.model["modifier_args"]["neg_label"])
+                        if "pos_label" in self.model["modifier_args"]:
+                            tokenize_partial = partial(tokenize_partial,
+                                                       pos_label=self.model["modifier_args"]["pos_label"])
         return (
             dataset.map(tokenize_partial, batched=True, remove_columns=columns_to_remove),
             tokenizer
