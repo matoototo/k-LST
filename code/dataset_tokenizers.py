@@ -71,12 +71,25 @@ def tokenize_sst2_t5(dataset, tokenizer, max_length):
     return tokenized_inputs
 
 
-def tokenize_sst2_prompt(dataset, tokenizer, max_length, neg_label="terrible", pos_label="great"):
+def tokenize_sst2_prompt(dataset, tokenizer, max_length, neg_label="terrible", pos_label="great",
+                         prompt="[SENTENCE] It was [MASK]."):
     # tokenizing the template in https://arxiv.org/abs/2012.15723 (Table 1)
     tokenized_inputs = tokenizer(
-        [f"{sentence} It was {tokenizer.mask_token}." for sentence in dataset['sentence']],
-        text_target=[f"{entry[0]} It was {pos_label if entry[1] == 1 else neg_label}." for entry in
-                     zip(dataset['sentence'], dataset['label'])],
+        [prompt.replace('[SENTENCE]', sentence).replace("[MASK]", tokenizer.mask_token) for sentence in
+         dataset['sentence']],
+        text_target=[prompt.replace("[SENTENCE]", entry[0]).replace("[MASK]", neg_label if entry[1] == 0 else pos_label)
+                     for entry in zip(dataset['sentence'], dataset['label'])],
+        max_length=max_length,
+        truncation=True
+    )
+
+    return tokenized_inputs
+
+
+def tokenize_sst2_prompt_no_label(dataset, tokenizer, max_length, prompt="[SENTENCE] It was [MASK]."):
+    prompt = prompt.replace('[MASK]', tokenizer.mask_token)
+    tokenized_inputs = tokenizer(
+        [prompt.replace('[SENTENCE]', sentence) for sentence in dataset['sentence']],
         max_length=max_length,
         truncation=True
     )

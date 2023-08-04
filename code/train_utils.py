@@ -1,4 +1,4 @@
-from transformers import DataCollatorWithPadding, DataCollatorForTokenClassification, DefaultDataCollator
+from transformers import DataCollatorWithPadding, DataCollatorForTokenClassification
 from config import Config
 from update_policy import UpdatePolicyCallback
 
@@ -27,8 +27,8 @@ def train(config: Config, resume_from_checkpoint, model_path):
     train_dataset = tokenized_dataset["train"]
     eval_dataset = tokenized_dataset["validation"]
 
-    # function called by trainer during trainer.evaluate()
-    metric_function = config.load_metric_function()
+    # functions called by trainer during trainer.evaluate()
+    metric_function, preprocess_logits_function = config.load_metric_function(tokenizer)
 
     # get optimizer & scheduler
     optimizer = config.load_optimizer(model, train_dataset)
@@ -41,6 +41,7 @@ def train(config: Config, resume_from_checkpoint, model_path):
         data_collator=data_collator,
         tokenizer=tokenizer,
         compute_metrics=metric_function,
+        preprocess_logits_for_metrics=preprocess_logits_function,
         callbacks=[UpdatePolicyCallback],
         optimizers=optimizer
     )

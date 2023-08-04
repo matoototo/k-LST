@@ -5,12 +5,13 @@ dataset:
 
 model:
     base_model: "roberta-large"
-    model_type: "bert prompt"
+    model_type: "bert"
     modifier: "mezo"
     modifier_args:
         eps: 0.001
         pos_label: "great"
         neg_label: "terrible"
+        prompt: "[SENTENCE] It was [MASK]."
 
 freeze:
     strategy: "all_but_last_n"
@@ -34,11 +35,11 @@ train:
     per_device_eval_batch_size: 16
     output_dir: "results"
     evaluation_strategy: "steps"
-    eval_steps: 200
-    logging_steps: 20
+    eval_steps: 500
+    logging_steps: 100
     save_total_limit: 5
     save_strategy: "steps"
-    save_steps: 200
+    save_steps: 1000
     max_steps: 100000
 
 ...

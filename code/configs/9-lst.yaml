@@ -15,11 +15,11 @@ freeze:
 adapter:
     strategy: "lst"
     args:
-        reduction_factor: 16
+        reduction_factor: 8
         fusion: "attention" # "additive", "dynamic", "gated" or "attention"
         freeze_head: false
-        k: 1
-        dropout: 0
+        dropout: 0.2
+        k: 9
 
 optimizer:
     name: "adamw"
