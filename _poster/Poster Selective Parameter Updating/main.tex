@@ -1,0 +1,103 @@
+%%
+% This is an Overleaf template for scientific posters
+% using the TUM Corporate Desing https://www.tum.de/cd
+%
+% For further details on how to use the template, take a look at our
+% GitLab repository and browse through our test documents
+% https://gitlab.lrz.de/latex4ei/tum-templates.
+%
+% The tumposter class is based on the KOMA-Script class scrartcl and the
+% poster framework of the package tcolorbox.
+% If you need further customization please consult the KOMA-Script guide
+% https://ctan.org/pkg/koma-script
+% and the tcolorbox user guide (especially the poster section)
+% https://ctan.org/pkg/tcolorbox.
+% Additional class options are passed down to the base class.
+%
+% If you encounter any bugs or undesired behaviour, please raise an issue
+% in our GitLab repository
+% https://gitlab.lrz.de/latex4ei/tum-templates/issues
+% and provide a description and minimal working example of your problem.
+%%
+
+
+\documentclass[
+  a0paper,    % poster size (a0paper, a1paper, a2paper, a3paper, a4paper)
+  portrait,   % poster orientation (portrait, landscape)
+  english,    % define the document language (english, german)
+]{tumposter}
+
+
+% load additional packages
+\usepackage{lipsum}
+\usepackage{svg}
+\usepackage{adjustbox}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{pgfplots}
+
+% poster metadata
+\title{Selective Parameter Updating}
+\subtitle{SiVA, k-LST, Prompts}
+
+\author{Baykam Say}
+\author{Coşku Barış Coşlu}
+\author{Mato Gudelj}
+
+
+% macro to configure the style of the poster
+\TUMpostersetup{
+  columns = 3,            % number of columns of the poster
+  rows = 6,               % number of rows of the poster
+  background = white,     % background color (white, blue, shaded)
+  boxes = TUMBox,         % default box style (TUMBox, TUMBoxVariant, TUMBoxInverse, TUMBoxBlank)
+  headline = threeliner,  % choose headline (tumlogo, oneliner, twoliner, threeliner, logothreeliner)
+  printaffil = false,     % disable affiliation in title area (in case you print it in a footer)
+  fontsize = 28pt,        % choose larger base font size if necessary
+  % showframe = true,       % print poster row and column grid (for draft versions)
+}
+
+\renewcommand{\labelitemi}{\raisebox{-0.5ex}{\LARGE\textbullet}}
+
+\begin{document}
+
+\maketitle
+
+\begin{tcbposter}
+  % Motivation box
+  \posterbox[adjusted title=Motivation]{name=motivation,
+    below=top, span=1, rowspan=2.8
+  }{
+    \input{motivation}
+  }
+
+  % Results box
+  \posterbox[adjusted title=Results]{name=results,
+    column=2, below=top, span=2, rowspan=2.8
+  }{
+    \include{results}
+  }
+
+  % Method and Model descriptions
+  \posterbox[adjusted title=Singular Value Adaptation (SiVA)]{name=siva,
+    column=1, between=motivation and bottom, span=1
+  }{
+    \include{siva}
+  }
+  
+  \posterbox[adjusted title=k-Ladder Side Tuning (k-LST)]{name=k-lst,
+    column=2, between=results and bottom, span=1
+  }{
+    \input{k_lst}
+  }
+  
+  \posterbox[adjusted title=MeZO and Training with Prompts]{name=mezo,
+    column=3, span=1, between=results and bottom
+  }{
+    \input{mezo}
+
+  }
+
+\end{tcbposter}
+
+\end{document}
