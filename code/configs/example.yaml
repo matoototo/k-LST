@@ -6,31 +6,34 @@ dataset:
 model:
     base_model: "roberta-large"
     model_type: "bert"
-    # Uncomment below and trainable_param_names to use SiVA
-    # siva: 
-    #     decomposition_rank: 1024
-    #     training_rank: 4
-    #     layers: "query|key|value|dense"
-    #     modules: ".*self|.*output|.*intermediate"
+    #Uncomment below and trainable_param_names to use SiVA
+    #siva:
+    #    decomposition_rank: 1024
+    #    training_rank: 4
+    #    layers: "query|key|value|dense"
+    #    modules: ".*self|.*output|.*intermediate"
 
-    # Uncomment below to use prompts
-    # modifier: "with_prompt" 
-    # modifier_args:
-    #     prompt: "[SENTENCE] It was [MASK]."
+    #Uncomment below to use prompts
+    #modifier: "with_prompt" # "mezo", "prompt_based" or "with_prompt"
+    #modifier_args:
+    #    prompt: "[SENTENCE] It was [MASK]."
+    #    #pos_label: "great" # for "mezo" and "prompt_based"
+    #    #neg_label: "terrible" # for "mezo" and "prompt_based"
+    #    #eps: 0.001 # for "mezo"
 
 freeze:
     strategy: "none" # Swap to "all_but_last_n" and uncomment below for freezing, required for LST
-    # args:
-    #     n: 0
+    #args:
+    #    n: 0
 
 adapter:
     strategy: "none" # Swap to "lst" and uncomment below for k-LST
-    # args:
-    #     reduction_factor: 8
-    #     fusion: "attention" # "additive", "dynamic", "gated" or "attention"
-    #     freeze_head: false
-    #     dropout: 0.2
-    #     k: 9
+    #args:
+    #    reduction_factor: 8
+    #    fusion: "attention" # "additive", "dynamic", "gated" or "attention"
+    #    freeze_head: false
+    #    dropout: 0.2
+    #    k: 9
 
 optimizer:
     name: "adamw"
@@ -38,7 +41,7 @@ optimizer:
     weight_decay: 0.01
     scheduler: "linear_decay_with_warmup"
     warmup_ratio: 0.06
-    # trainable_param_names: "classifier.dense.*|.*out_proj.*|.*LayerNorm.*|.*siva_[uv].*" # Uncomment this to use SiVA
+    #trainable_param_names: "classifier.dense.*|.*out_proj.*|.*LayerNorm.*|.*siva_[uv].*" # Uncomment this to use SiVA
 
 train:
     num_train_epochs: 5
