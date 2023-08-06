@@ -6,11 +6,13 @@ dataset:
 model:
     base_model: "roberta-large"
     model_type: "bert"
-    siva:
-        decomposition_rank: 1024
-        training_rank: 4
+    lora:
+        scaling_rank: 0
+        rank: 4
+        init_scale: 0.01
         layers: "query|key|value|dense"
         modules: ".*self|.*output|.*intermediate"
+        buffer_original: False # Set true for side-lora
 
 freeze:
     strategy: "none"
@@ -20,19 +22,18 @@ adapter:
 
 optimizer:
     name: "adamw"
-    lr: 0.00001
+    lr: 0.00006
     weight_decay: 0.01
     scheduler: "linear_decay_with_warmup"
     warmup_ratio: 0.06
-    trainable_param_names: "classifier.dense.*|.*out_proj.*|.*LayerNorm.*|.*siva_[uv].*"
+    trainable_param_names: "classifier.dense.*|.*out_proj.*|.*LayerNorm.*|.*lora_[ab].*"
 
 train:
-    num_train_epochs: 20
+    num_train_epochs: 7
     per_device_train_batch_size: 16
     per_device_eval_batch_size: 16
     output_dir: "results"
-    evaluation_strategy: "steps"
-    eval_steps: 500
+    evaluation_strategy: "epoch"
     save_strategy: "epoch"
     save_total_limit: 50
 

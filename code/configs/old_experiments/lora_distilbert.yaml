@@ -12,7 +12,7 @@ model:
         init_scale: 0.01
         layers: "q_lin|k_lin|v_lin|out_lin|lin.*"
         modules: ".*attention|.*ffn"
-        buffer_original: True
+        buffer_original: False
 
 freeze:
     strategy: "none"
@@ -34,5 +34,6 @@ train:
     per_device_eval_batch_size: 16
     output_dir: "results"
     evaluation_strategy: "epoch"
-
+    save_strategy: "epoch"
+    save_total_limit: 50
 ...

@@ -4,13 +4,13 @@ dataset:
     name: "sst2"
 
 model:
-    base_model: "roberta-large"
+    base_model: "distilbert-base-cased"
     model_type: "bert"
     siva:
-        decomposition_rank: 1024
+        decomposition_rank: 768
         training_rank: 4
-        layers: "query|key|value|dense"
-        modules: ".*self|.*output|.*intermediate"
+        layers: "q_lin|k_lin|v_lin|out_lin|lin.*"
+        modules: ".*attention|.*ffn"
 
 freeze:
     strategy: "none"
@@ -20,14 +20,14 @@ adapter:
 
 optimizer:
     name: "adamw"
-    lr: 0.00001
+    lr: 0.00002
     weight_decay: 0.01
     scheduler: "linear_decay_with_warmup"
     warmup_ratio: 0.06
-    trainable_param_names: "classifier.dense.*|.*out_proj.*|.*LayerNorm.*|.*siva_[uv].*"
+    trainable_param_names: ".*classifier.*|.*layer_norm.*|.*siva_[uv].*"
 
 train:
-    num_train_epochs: 20
+    num_train_epochs: 10
     per_device_train_batch_size: 16
     per_device_eval_batch_size: 16
     output_dir: "results"
