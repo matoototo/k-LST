@@ -1,0 +1,49 @@
+\subsection{MeZO and Training with Prompts}
+While LST methods provide a significant reduction in memory usage, they also suffer from a reduced accuracy, which is their main weakness. The same weakness applies to layer freezing: While freezing most of the model and training only the last few layers is a very simple yet effective PEFT method, a considerable sacrifice in performance is required in order to save memory on the same level as LST. 
+
+\begin{table}[htb]
+    \caption{Experiment results using MeZO and input prompts. Adding an input prompt greatly improves performance for all methods.}
+    \label{table: mezo_results}
+    \centering
+    \begin{tabular}{lc}
+        \toprule
+        Method &  Accuracy \\
+        \midrule
+        MeZO    &   91.74\% \\
+        %\midrule
+        LST & 93.12\% \\
+        LST + MeZO & 93.46\% \\
+        LST + Prompt & 94.84\%\\
+        LST + MeZO + Prompt & 94.38\%\\
+        \midrule
+        9-LST & 95.07\%\\
+        9-LST + MeZO & 95.18\%\\
+        9-LST + Prompt & 95.41\%\\
+        9-LST + MeZO + Prompt & 94.72\%\\
+        \midrule
+        Last 3 Layers & 94.15\%\\
+        Last 3 Layers + MeZO & 94.38\%\\
+        Last 3 Layers + Prompt & 94.84\%\\
+        Last 3 Layers + MeZO + Prompt & 95.18\%\\
+        %\midrule
+        %MeZO    &   91.74\% \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+
+
+One of the focal points of our work is trying to bring the performance of these methods closer to full fine-tuning without adding additional memory consumption. Thus, we experiment with the idea of incorporating MeZO into the training process.
+
+Our hypothesis is that the performance of LST can be improved by fine-tuning the backbone network using MeZO before fine-tuning the side network. Since MeZO is very memory-efficient, this approach would not increase memory consumption, while presumably improving performance through better features from the backbone model.  
+
+We fine-tune a RoBERTa-large model on the SST-2 dataset using the recipe described in \cite{mezo}: With \textit{<S>} being the sentence from the SST-2 dataset, We use the prompt \textit{"<S> It was [MASK]."} and our label words are \textit{"great"} and \textit{"terrible"}. Under this prompt-based fine-tuning setting, we fine-tune using the MeZO algorithm for 48K steps with a constant learning rate of $\eta = 1e-6$, a perturbation scale of $\epsilon = 1e-3$ and a batch size of $16$. We then save the fine-tuned model and use the saved model as the backbone to fine-tune a side network.
+%using the configuration described in []. 
+We fine-tune LST and 9-LST models using the configuration described in \Cref{section:lst-parameters}. When fine-tuning the side network we also try giving the prompt that was used when fine-tuning MeZO as input to the model. That means we try both \textit{"<S>"} and 
+\textit{"<S> It was [MASK]."} as inputs.
+
+Our intermediate results are shown in \Cref{table: mezo_results}. The results show a notable improvement in performance when the inputs are prompts. We find analogous improvements when performing the same experiment with prompts for layer freezing.
+
+For layer freezing, we train the classifier head and the last 3 transformer layers of the model using an AdamW optimizer with a learning rate of $2e-5$, a linear learning rate schedule with a warmup ratio of $0.06$ and a weight decay of $0.01$. 
+
+We test our hypothesis by comparing the results with and without prior MeZO fine-tuning and find that it is uncertain if it has a positive impact on model performance. Input prompts are the main factor that is getting better results from all methods.

@@ -1,0 +1,73 @@
+%%
+% This is an Overleaf template for scientific articles and reports
+% using the TUM Corporate Desing https://www.tum.de/cd
+%
+% For further details on how to use the template, take a look at our
+% GitLab repository and browse through our test documents
+% https://gitlab.lrz.de/latex4ei/tum-templates.
+%
+% The tumarticle class is based on the KOMA-Script class scrartcl.
+% If you need further customization please consult the KOMA-Script guide
+% https://ctan.org/pkg/koma-script.
+% Additional class options are passed down to the base class.
+%
+% If you encounter any bugs or undesired behaviour, please raise an issue
+% in our GitLab repository
+% https://gitlab.lrz.de/latex4ei/tum-templates/issues
+% and provide a description and minimal working example of your problem.
+%%
+
+
+\documentclass[
+  english,        % define the document language (english, german)
+  font=times,     % define main text font (helvet, times, palatino, libertine)
+  twocolumn,      % use onecolumn or twocolumn layout
+]{tumarticle}
+
+
+% load additional packages
+\usepackage{lipsum}
+\usepackage{svg}
+\usepackage{wrapfig}
+\usepackage{amsmath}
+\usepackage[nameinlink]{cleveref}
+\usepackage[style=numeric]{biblatex}
+\usepackage{csquotes}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{stfloats}
+\addbibresource{refs.bib}
+
+% article metadata
+\title{Reducing Training Resource Cost by Selective Parameter Updating}
+
+\author[affil=1, email=baykam.say@tum.de]{Baykam Say}
+\author[affil=1, email=baris.coslu@tum.de]{Coşku Barış Coşlu}
+\author[affil=1, email=mato.gudelj@tum.de]{Mato Gudelj}
+
+\affil[mark=1]{\theDepartmentName, \theUniversityName}
+
+\date{June 24, 2023}
+
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+  This work introduces two novel Parameter-Efficient Fine Tuning (PEFT) methods for fine-tuning of large-scale pre-trained transformer models, Singular Value Adaptation (SiVA) and k-Ladder Side-Tuning (k-LST). Additionally, it utilizes input prompts to improve the performance of PEFT methods. SiVA improves upon LoRA by leveraging singular value decomposition for initialization, thereby avoiding the problematic zero-initialization employed by LoRA. This leads to faster convergence while maintaining full fine-tuning performance. k-LST improves upon Ladder Side Tuning, closing the performance gap of memory efficient PEFT methods while retaining a low memory footprint. It extracts backbone features with a sliding window, which are then queried by the side network with cross-attention. Prompts, when used in conjunction with various PEFT methods, improve performance over the baseline with no computational drawbacks.
+\end{abstract}
+
+\input{project/1_introduction/0_introduction}
+
+\input{project/2_related_work/0_related_work}
+
+\input{project/3_methods/0_methods}
+
+\input{project/4_results/0_results}
+
+\input{project/5_conclusion/0_conclusion}
+
+\printbibliography
+
+\end{document}
