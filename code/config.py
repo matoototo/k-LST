@@ -3,18 +3,17 @@ import datasets as huggingface_datasets
 from functools import partial
 from datasets import concatenate_datasets
 from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingArguments, \
-    AutoModelForSequenceClassification, AutoModel, T5ForConditionalGeneration, AutoModelForMaskedLM
-from dataset_tokenizers import tokenize_squad, tokenize_sst2, tokenize_sst2_t5, tokenize_sst2_prompt, \
-    tokenize_sst2_prompt_no_label
+    AutoModelForSequenceClassification, AutoModel, T5ForConditionalGeneration, AutoModelForMaskedLM, AutoConfig
+from dataset_tokenizers import *
 from freeze_strategies import all_but_last_n
-from metric_functions import compute_metrics_sst2_bert, compute_metrics_sst2_t5, preprocess_logits_sst2_prompt, \
-    compute_metrics_sst2_bert_prompt
+from metric_functions import *
 from models.lora import modify_with_lora
 from models.siva import modify_with_siva
 from optimizer import get_optimizer, get_scheduler
 from adapters import ladder_side_tuning, ladder_side_distillation
 from transformers import Trainer
 from trainers import MezoTrainer
+import torch
 
 
 class Config:
@@ -44,8 +43,22 @@ class Config:
                     model = AutoModelForQuestionAnswering.from_pretrained(base_model)
                 case "sst2":
                     model = AutoModelForSequenceClassification.from_pretrained(base_model)
+                case "glue":
+                    if self.dataset["subset"] == "stsb":
+                        print("Look!")
+                        conf = AutoConfig.from_pretrained(base_model, num_labels=1)
+                    else:
+                        conf = AutoConfig.from_pretrained(base_model, num_labels=2)
+                    model = AutoModelForSequenceClassification.from_pretrained(base_model, config=conf)
                 case _:
-                    model = AutoModel.from_pretrained(base_model)
+                    model = AutoModelForSequenceClassification.from_pretrained(base_model)
+        # match self.dataset["subset"]:
+            # case "qnli":
+            #     print("ROBERTA hack")
+            #     model.roberta.config.type_vocab_size = 2
+            #     single_emb = model.roberta.embeddings.token_type_embeddings
+            #     model.roberta.embeddings.token_type_embeddings = torch.nn.Embedding(2, single_emb.embedding_dim)
+            #     model.roberta.embeddings.token_type_embeddings.weight = torch.nn.Parameter(single_emb.weight.repeat([2, 1]))
 
         if "lora" in self.model:
             model = modify_with_lora(model, self.model["lora"])
@@ -79,7 +92,10 @@ class Config:
         """Load dataset and take subset if specified
         :return: datasets.Dataset
         """
-        dataset = huggingface_datasets.load_dataset(self.dataset["name"], split=None)
+        if "subset" not in self.dataset:
+            dataset = huggingface_datasets.load_dataset(self.dataset["name"], split=None)
+        else:
+            dataset = huggingface_datasets.load_dataset(self.dataset["name"], self.dataset["subset"], split=None)
         if "n_train" in self.dataset:
             dataset["train"] = dataset["train"].select(range(self.dataset["n_train"]))
         if "n_val" in self.dataset:
@@ -103,8 +119,13 @@ class Config:
         tokenize_func_map = {"squad bert none": tokenize_squad, "sst2 bert none": tokenize_sst2,
                              "sst2 t5 none": tokenize_sst2_t5, "sst2 bert prompt_based": tokenize_sst2_prompt,
                              "sst2 bert with_prompt": tokenize_sst2_prompt_no_label,
-                             "sst2 bert mezo": tokenize_sst2_prompt}
-        tokenize_func = tokenize_func_map[f"{self.dataset['name']} {self.model['model_type']} {self.modifier}"]
+                             "sst2 bert mezo": tokenize_sst2_prompt,
+                             "cola bert none": tokenize_cola, "qnli bert none": tokenize_qnli,
+                             "rte bert none": tokenize_rte, "stsb bert none": tokenize_stsb}
+        if "subset" not in self.dataset:
+            tokenize_func = tokenize_func_map[f"{self.dataset['name']} {self.model['model_type']} {self.modifier}"]
+        else:
+            tokenize_func = tokenize_func_map[f"{self.dataset['subset']} {self.model['model_type']} {self.modifier}"]
 
         tokenizer = AutoTokenizer.from_pretrained(self.model["base_model"])
 
@@ -138,6 +159,14 @@ class Config:
                         if "pos_label" in self.model["modifier_args"]:
                             tokenize_partial = partial(tokenize_partial,
                                                        pos_label=self.model["modifier_args"]["pos_label"])
+        elif self.dataset["subset"] == "cola":
+            columns_to_remove = ["idx", "sentence"]
+        elif self.dataset["subset"] == "qnli":
+            columns_to_remove = ["idx", "sentence", "question"]
+        elif self.dataset["subset"] == "rte":
+            columns_to_remove = ["idx", "sentence1", "sentence2"]
+        elif self.dataset["subset"] == "stsb":
+            columns_to_remove = ["idx", "sentence1", "sentence2"]
         return (
             dataset.map(tokenize_partial, batched=True, remove_columns=columns_to_remove),
             tokenizer
@@ -172,6 +201,10 @@ class Config:
                     metric_func = compute_metrics_sst2_bert
             elif self.model['model_type'] == "t5":
                 metric_func = compute_metrics_sst2_t5
+        elif self.dataset['subset'] == "stsb":
+            metric_func = compute_metrics_stsb_bert
+        else:
+            metric_func = compute_metrics_sst2_bert
         return metric_func, preprocess_logits_func
 
     def load_optimizer(self, model, train_dataset):

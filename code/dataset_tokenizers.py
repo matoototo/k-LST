@@ -55,6 +55,59 @@ def tokenize_sst2(dataset, tokenizer, max_length):
     return tokenized_inputs
 
 
+def tokenize_cola(dataset, tokenizer, max_length):
+    tokenized_inputs = tokenizer(
+        dataset["sentence"],
+        max_length=max_length,
+        truncation=True
+    )
+
+    return tokenized_inputs
+
+# def tokenize_mnli(dataset, tokenizer, max_length):
+#     tokenized_inputs = tokenizer(
+#         dataset["premise"],
+#         dataset["hypothesis"],
+#         max_length=max_length,
+#         truncation=True
+#     )
+#
+#     return tokenized_inputs
+
+
+def tokenize_qnli(dataset, tokenizer, max_length):
+    tokenized_inputs = tokenizer(
+        dataset["question"],
+        dataset["sentence"],
+        max_length=max_length,
+        truncation=True
+    )
+
+    return tokenized_inputs
+
+
+def tokenize_rte(dataset, tokenizer, max_length):
+    tokenized_inputs = tokenizer(
+        dataset["sentence1"],
+        dataset["sentence2"],
+        max_length=max_length,
+        truncation=True
+    )
+
+    return tokenized_inputs
+
+
+def tokenize_stsb(dataset, tokenizer, max_length):
+    tokenized_inputs = tokenizer(
+        dataset["sentence1"],
+        dataset["sentence2"],
+        max_length=max_length,
+        truncation=True
+    )
+
+    return tokenized_inputs
+
+
 def tokenize_sst2_t5(dataset, tokenizer, max_length):
     tokenized_inputs = tokenizer(
         # "sst2 sentence: " can be added to the beginning of sentences as in

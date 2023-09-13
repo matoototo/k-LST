@@ -26,6 +26,14 @@ def compute_metrics_sst2_bert(eval_preds):
     f1 = metric_f1.compute(predictions=predictions, references=labels)
     return accuracy | f1
 
+def compute_metrics_stsb_bert(eval_preds):
+    metric_accuracy = evaluate.load("pearsonr")
+    logits, labels = eval_preds
+    # predictions = np.argmax(logits, axis=-1)
+    predictions = logits
+
+    pearsonr = metric_accuracy.compute(predictions=predictions, references=labels)
+    return pearsonr
 
 def compute_metrics_sst2_t5(eval_preds):
     metric_accuracy = evaluate.load("accuracy")
