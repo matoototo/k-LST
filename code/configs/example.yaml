@@ -2,7 +2,7 @@
 ---
 dataset:
     name: "glue"
-    subset: "stsb"
+    subset: "qnli"
 
 model:
     base_model: "roberta-large"

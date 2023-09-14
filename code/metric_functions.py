@@ -30,7 +30,7 @@ def compute_metrics_stsb_bert(eval_preds):
     metric_accuracy = evaluate.load("pearsonr")
     logits, labels = eval_preds
     # predictions = np.argmax(logits, axis=-1)
-    predictions = logits
+    predictions = np.squeeze(logits)
 
     pearsonr = metric_accuracy.compute(predictions=predictions, references=labels)
     return pearsonr
