@@ -98,6 +98,17 @@ def tokenize_rte(dataset, tokenizer, max_length):
     return tokenized_inputs
 
 
+def tokenize_qqp(dataset, tokenizer, max_length):
+    tokenized_inputs = tokenizer(
+        dataset["question1"],
+        dataset["question2"],
+        max_length=max_length,
+        truncation=True
+    )
+
+    return tokenized_inputs
+
+
 def tokenize_stsb(dataset, tokenizer, max_length):
     tokenized_inputs = tokenizer(
         dataset["sentence1"],

@@ -112,7 +112,8 @@ class Config:
                              "sst2 bert with_prompt": tokenize_sst2_prompt_no_label,
                              "sst2 bert mezo": tokenize_sst2_prompt,
                              "cola bert none": tokenize_cola, "qnli bert none": tokenize_qnli,
-                             "rte bert none": tokenize_rte, "stsb bert none": tokenize_stsb}
+                             "rte bert none": tokenize_rte, "stsb bert none": tokenize_stsb,
+                             "qqp bert none": tokenize_qqp}
         if "subset" not in self.dataset:
             tokenize_func = tokenize_func_map[f"{self.dataset['name']} {self.model['model_type']} {self.modifier}"]
         else:

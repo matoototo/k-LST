@@ -2,6 +2,7 @@ import evaluate
 import numpy as np
 import torch
 
+
 def get_labels(references):
     labels = []
     for i in references:
@@ -14,8 +15,8 @@ def get_labels(references):
                 labels.append(i)
     return labels
 
-# compute_metrics function called by trainer during trainer.evaluate()
 
+# compute_metrics function called by trainer during trainer.evaluate()
 def compute_metrics_sst2_bert(eval_preds):
     metric_accuracy = evaluate.load("accuracy")
     metric_f1 = evaluate.load("f1")
@@ -26,6 +27,7 @@ def compute_metrics_sst2_bert(eval_preds):
     f1 = metric_f1.compute(predictions=predictions, references=labels)
     return accuracy | f1
 
+
 def compute_metrics_stsb_bert(eval_preds):
     metric_accuracy = evaluate.load("pearsonr")
     logits, labels = eval_preds
@@ -34,6 +36,7 @@ def compute_metrics_stsb_bert(eval_preds):
 
     pearsonr = metric_accuracy.compute(predictions=predictions, references=labels)
     return pearsonr
+
 
 def compute_metrics_sst2_t5(eval_preds):
     metric_accuracy = evaluate.load("accuracy")
