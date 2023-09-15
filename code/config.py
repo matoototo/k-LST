@@ -3,7 +3,7 @@ import datasets as huggingface_datasets
 from functools import partial
 from datasets import concatenate_datasets
 from transformers import AutoModelForQuestionAnswering, AutoTokenizer, TrainingArguments, \
-    AutoModelForSequenceClassification, AutoModel, T5ForConditionalGeneration, AutoModelForMaskedLM, AutoConfig
+    AutoModelForSequenceClassification, AutoModel, T5ForConditionalGeneration, AutoModelForMaskedLM
 from dataset_tokenizers import *
 from freeze_strategies import all_but_last_n
 from metric_functions import *
@@ -13,7 +13,6 @@ from optimizer import get_optimizer, get_scheduler
 from adapters import ladder_side_tuning, ladder_side_distillation
 from transformers import Trainer
 from trainers import MezoTrainer
-import torch
 
 
 class Config:
@@ -45,20 +44,12 @@ class Config:
                     model = AutoModelForSequenceClassification.from_pretrained(base_model)
                 case "glue":
                     if self.dataset["subset"] == "stsb":
-                        print("Look!")
-                        conf = AutoConfig.from_pretrained(base_model, num_labels=1)
+                        num_labels = 1
                     else:
-                        conf = AutoConfig.from_pretrained(base_model, num_labels=2)
-                    model = AutoModelForSequenceClassification.from_pretrained(base_model, config=conf)
+                        num_labels = 2
+                    model = AutoModelForSequenceClassification.from_pretrained(base_model, num_labels=num_labels)
                 case _:
                     model = AutoModelForSequenceClassification.from_pretrained(base_model)
-        # match self.dataset["subset"]:
-            # case "qnli":
-            #     print("ROBERTA hack")
-            #     model.roberta.config.type_vocab_size = 2
-            #     single_emb = model.roberta.embeddings.token_type_embeddings
-            #     model.roberta.embeddings.token_type_embeddings = torch.nn.Embedding(2, single_emb.embedding_dim)
-            #     model.roberta.embeddings.token_type_embeddings.weight = torch.nn.Parameter(single_emb.weight.repeat([2, 1]))
 
         if "lora" in self.model:
             model = modify_with_lora(model, self.model["lora"])
@@ -129,7 +120,9 @@ class Config:
 
         tokenizer = AutoTokenizer.from_pretrained(self.model["base_model"])
 
-        if self.model["base_model"] == "t5-base":
+        # Hack: the roberta pretrained models have a misconfigured max_position_embeddings parameter, defined as 514,
+        # even though they only support a max length of 512 which leads to errors during truncation
+        if self.model["base_model"] in ["roberta-large", "robert-base", "t5-base"]:
             max_length = 512
         else:
             max_length = model.config.max_position_embeddings
@@ -168,7 +161,7 @@ class Config:
         elif self.dataset["subset"] == "stsb":
             columns_to_remove = ["idx", "sentence1", "sentence2"]
         return (
-            dataset.map(tokenize_partial, batched=True, remove_columns=columns_to_remove),
+            dataset.map(tokenize_partial, batched=True, remove_columns=columns_to_remove, load_from_cache_file=False),
             tokenizer
         )
 

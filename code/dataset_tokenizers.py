@@ -79,8 +79,9 @@ def tokenize_qnli(dataset, tokenizer, max_length):
     tokenized_inputs = tokenizer(
         dataset["question"],
         dataset["sentence"],
-        # max_length=max_length,
-        truncation=True
+        max_length=512,
+        truncation=True,
+        #padding="max_length"
     )
 
     return tokenized_inputs

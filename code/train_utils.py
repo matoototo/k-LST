@@ -1,4 +1,4 @@
-from transformers import DataCollatorWithPadding, DataCollatorForTokenClassification
+from transformers import DataCollatorWithPadding, DataCollatorForTokenClassification, EarlyStoppingCallback
 from config import Config
 from update_policy import UpdatePolicyCallback
 
@@ -42,7 +42,7 @@ def train(config: Config, resume_from_checkpoint, model_path):
         tokenizer=tokenizer,
         compute_metrics=metric_function,
         preprocess_logits_for_metrics=preprocess_logits_function,
-        callbacks=[UpdatePolicyCallback],
+        callbacks=[UpdatePolicyCallback, EarlyStoppingCallback(early_stopping_patience=training_args.save_total_limit-1)],
         optimizers=optimizer
     )
 
