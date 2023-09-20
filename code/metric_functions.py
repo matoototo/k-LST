@@ -38,6 +38,15 @@ def compute_metrics_stsb_bert(eval_preds):
     return pearsonr
 
 
+def compute_metrics_cola_bert(eval_preds):
+    metric_accuracy = evaluate.load("matthews_correlation")
+    logits, labels = eval_preds
+    predictions = np.argmax(logits, axis=-1)
+
+    matthews = metric_accuracy.compute(predictions=predictions, references=labels)
+    return matthews
+
+
 def compute_metrics_sst2_t5(eval_preds):
     metric_accuracy = evaluate.load("accuracy")
     metric_f1 = evaluate.load("f1")

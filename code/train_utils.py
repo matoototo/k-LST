@@ -1,3 +1,4 @@
+import transformers
 from transformers import DataCollatorWithPadding, DataCollatorForTokenClassification, EarlyStoppingCallback
 from config import Config
 from update_policy import UpdatePolicyCallback
@@ -57,7 +58,7 @@ def train(config: Config, resume_from_checkpoint, model_path):
 
 if __name__ == "__main__":
     import argparse, pathlib
-
+    transformers.set_seed(42)
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=pathlib.Path, help="Path to config file", required=True)
     parser.add_argument("--resume_from_checkpoint", help="When set to True, trainer resumes from latest checkpoint. "

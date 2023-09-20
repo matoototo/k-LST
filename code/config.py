@@ -13,6 +13,7 @@ from optimizer import get_optimizer, get_scheduler
 from adapters import ladder_side_tuning, ladder_side_distillation
 from transformers import Trainer
 from trainers import MezoTrainer
+import os.path
 
 
 class Config:
@@ -32,24 +33,13 @@ class Config:
         """
         # Return a model for the task based on the config
         base_model = model_path if model_path is not None else self.model["base_model"]
-        if self.model["model_type"] == "t5":
-            model = T5ForConditionalGeneration.from_pretrained(base_model)
-        elif self.modifier in ["mezo", "prompt_based"]:
-            model = AutoModelForMaskedLM.from_pretrained(base_model)
+        if self.dataset["subset"] == "stsb":
+            num_labels = 1
+        elif self.dataset["subset"] == "mnli":
+            num_labels = 3
         else:
-            match self.dataset["name"]:
-                case "squad":
-                    model = AutoModelForQuestionAnswering.from_pretrained(base_model)
-                case "sst2":
-                    model = AutoModelForSequenceClassification.from_pretrained(base_model)
-                case "glue":
-                    if self.dataset["subset"] == "stsb":
-                        num_labels = 1
-                    else:
-                        num_labels = 2
-                    model = AutoModelForSequenceClassification.from_pretrained(base_model, num_labels=num_labels)
-                case _:
-                    model = AutoModelForSequenceClassification.from_pretrained(base_model)
+            num_labels = 2
+        model = AutoModelForSequenceClassification.from_pretrained(base_model, num_labels=num_labels)
 
         if "lora" in self.model:
             model = modify_with_lora(model, self.model["lora"])
@@ -87,6 +77,11 @@ class Config:
             dataset = huggingface_datasets.load_dataset(self.dataset["name"], split=None)
         else:
             dataset = huggingface_datasets.load_dataset(self.dataset["name"], self.dataset["subset"], split=None)
+            # combine matched and mismatched validation and test sets for mnli
+            if self.dataset["subset"] == "mnli":
+                dataset['validation'] = dataset['validation_matched'] + dataset['validation_mismatched']
+                dataset['test'] = dataset['test_matched'] + dataset['test_mismatched']
+                dataset.remove_columns(['test_matched', 'test_mismatched', 'validation_mismatched', 'validation_matched'])
         if "n_train" in self.dataset:
             dataset["train"] = dataset["train"].select(range(self.dataset["n_train"]))
         if "n_val" in self.dataset:
@@ -161,6 +156,8 @@ class Config:
             columns_to_remove = ["idx", "sentence1", "sentence2"]
         elif self.dataset["subset"] == "stsb":
             columns_to_remove = ["idx", "sentence1", "sentence2"]
+        elif self.dataset["subset"] == "sst2":
+            columns_to_remove = ["idx", "sentence"]
         return (
             dataset.map(tokenize_partial, batched=True, remove_columns=columns_to_remove, load_from_cache_file=False),
             tokenizer
@@ -197,6 +194,8 @@ class Config:
                 metric_func = compute_metrics_sst2_t5
         elif self.dataset['subset'] == "stsb":
             metric_func = compute_metrics_stsb_bert
+        elif self.dataset['subset'] == "cola":
+            metric_func = compute_metrics_cola_bert
         else:
             metric_func = compute_metrics_sst2_bert
         return metric_func, preprocess_logits_func

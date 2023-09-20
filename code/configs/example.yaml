@@ -2,7 +2,7 @@
 ---
 dataset:
     name: "glue"
-    subset: "qnli"
+    subset: "stsb"
 
 model:
     base_model: "roberta-large"
@@ -10,9 +10,10 @@ model:
     #Uncomment below and trainable_param_names to use SiVA
     siva:
         decomposition_rank: 1024
-        training_rank: 4
+        training_rank: 8
         layers: "query|key|value|dense"
         modules: ".*self|.*output|.*intermediate"
+        combined_us: True
 
 freeze:
     strategy: "none" # Swap to "all_but_last_n" and uncomment below for freezing, required for LST
@@ -30,11 +31,11 @@ adapter:
 
 optimizer:
     name: "adamw"
-    lr: 0.00001
+    lr: 0.00003
     weight_decay: 0.01
     scheduler: "linear_decay_with_warmup"
     warmup_ratio: 0.06
-    trainable_param_names: "classifier.dense.*|.*out_proj.*|.*LayerNorm.*|.*siva_[uv].*" # Uncomment this to use SiVA
+    trainable_param_names: "classifier.dense.*|.*out_proj.*|.*LayerNorm.*|.*siva_[u].*" # Uncomment this to use SiVA
 
 train:
     num_train_epochs: 5
@@ -45,6 +46,6 @@ train:
     eval_steps: 500
     save_total_limit: 6
     load_best_model_at_end: True
-    metric_for_best_model: 'accuracy'
+    metric_for_best_model: 'pearsonr'
 
 ...
