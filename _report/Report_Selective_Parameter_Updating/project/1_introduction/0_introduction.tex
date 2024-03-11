@@ -1,0 +1,17 @@
+\section{Introduction}
+
+In recent  years, large-scale pre-training and fine-tuning of transformer models have been prominent in domains such as natural language processing (NLP), computer vision (CV), and vision-and-language (VL) tasks. These models have the capacity to learn a wide spectrum of features from extensive data, making them highly effective for a variety of tasks. However, as the size of these models increases, the computational expense for fine-tuning becomes substantial
+
+In an effort to mitigate this issue, Parameter-Efficient Fine Tuning (PEFT) has become a notable area of research. The objective of PEFT is to build models that can proficiently handle multiple tasks without the need to train an entirely new model for each task. This is accomplished by updating a small subset of pre-trained parameters or by incorporating new additional parameters into the pre-trained network, while the majority of the original parameters remain unchanged. The focus of PEFT is to efficiently adapt pre-trained models to new tasks by reducing the overhead of fine-tuning.
+
+In general, PEFT methods have a trade-off between model performance, memory efficiency, and fine-tuning speed. This inherent trade-off between model efficiency and performance is a challenge that needs to be addressed to fully harness the potential of PEFT techniques in resource-constrained environments. This work is focused on addressing this trade-off by proposing novel methods that seek to balance efficiency and performance during PEFT.
+
+PEFT methods can be categorized by their underlying approach to achieving parameter efficiency. We use the three-class taxonomy that divides PEFT methods into additive, selective, and reparametrization-based methods \cite{peft-categories}:
+
+Additive methods insert extra parameters or layers into the pre-trained model and only train these newly inserted parameters. Well-known examples include Adapters \cite{adapters} and prompt tuning \cite{prompt-tuning}. Adapters are compact modules inserted into transformer blocks, while prompt tuning uses a small set of parameters that are concatenated with input embeddings. A recent addition to this category is LST \cite{sung2022lst}, which trains a small side model that operates on intermediate features of the original model, which are passed laterally to it. This is particularly memory efficient. 
+
+Selective methods keep the original model and update a subset of the parameters instead of all. BitFit \cite{zaken2022bitfit} is one example of such a method. BitFit only updates the bias parameters (or a small subset of them) to fine-tune the model.
+
+Reparametrization-based methods leverage low-rank representations of the weights to update smaller matrices that reflect the whole model. LoRA \cite{hu2021lora} is the most common example, and it trains low-rank matrices that represent the change in the full-rank weight matrices.
+
+Our work covers two of the given categories: reparametrization-based methods and additive methods (extending LST). We focus on reparametrization-based methods since they are relatively new and widely used in the industry and we focus on LST since it is a state-of-the-art additive method that uses minimal memory. We also work on improving PEFT methods through external factors. These include pre-fine-tuning the original model before PEFT using MeZO \cite{mezo}, a recent low-memory optimizer for PEFT, and modifying the model prompts for PEFT.

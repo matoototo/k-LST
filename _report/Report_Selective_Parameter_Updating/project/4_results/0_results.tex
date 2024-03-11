@@ -1,0 +1,42 @@
+
+\begin{table*}[htb]
+  \caption{Comparison of Different Methods when fine-tuning a RoBERTa-large model on the SST-2 dataset using a batch size of 16. Samples per Second is measured on an RTX 3070 Mobile and computed as the number of all training samples divided by the total time of training.}
+  \label{method-comparison}
+  \centering
+  \begin{tabular}{lcccc}
+    \toprule
+    Method           & Accuracy & F1    & Memory Usage (MB) & Samples per Second    \\
+    \midrule
+    Full Fine-Tuning & 96.44    & 96.52 & 8188              & 51.8                  \\
+    LoRA             & 96.22    & 96.30 & 4526              & 64.6                  \\
+    LST              & 93.23    & 93.33 & 1779              & 73.8                  \\
+    Last 3 Layers    & 94.04    & 94.18 & 2117              & 179.6                     \\
+    \midrule
+    SiVA             & 96.56    & 96.63 & 4529              & 73.3                  \\
+    SiVA - key value & 95.76    & 95.86 & 2920              & 106.4                 \\
+    \midrule
+    5-LST            & 94.04    & 94.04 & 2209              & 60.3                  \\
+    9-LST            & 95.07    & 95.18 & 2381              & 52.4                  \\
+    %\midrule
+    %MeZO    &   91.74   & 91.96     &   1805    &   54.5
+    %                \\
+    \midrule
+    LST + Prompt  & 94.84    & 94.98 & 1803              & 73.8                  \\
+    9-LST + Prompt& 95.41    & 95.55 & 2428              & 52.4                  \\
+    Last 3 Layers + Prompt & 94.84 & 94.87 & 2122 & 179.6 \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\section{Results}
+
+\Cref{method-comparison} shows a comparison of our methods and their respective baselines. We evaluate the performance in terms of accuracy and F1-score on the SST-2 dataset, as well
+as peak memory usage and training samples per second. For all experiments, we fine-tune a RoBERTa-large model using a batch size of 16. 
+
+Both SiVA and k-LST improve upon their respective baselines (LoRA and LST), while prompts bring improvement irrespective of the PEFT method they are used with. As a result, we present a set of new PEFT methods that cover both the low memory and full fine tuning quality regimes:
+
+\begin{itemize}
+    \item SiVA can be used to achieve a balanced reduction in memory usage and computation time when no compromise can be made on model performance.
+    \item k-LST can be used to achieve the highest reduction in memory usage with minimal loss of model performance.
+    \item Prompting can be used in conjunction with layer freezing or k-LST to further increase fine-tuning performance at no additional cost.
+\end{itemize}

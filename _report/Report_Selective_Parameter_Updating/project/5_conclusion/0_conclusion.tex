@@ -1,0 +1,17 @@
+\section{Conclusion and Future Work}
+
+\subsection{Conclusion}
+In this work, we introduced two new PEFT methods. Our low-rank update method SiVA represents weight matrices in a lower rank using SVD. SiVA converges much faster than the competition (LoRA), keeping the full-fine tuning accuracy and low memory usage.
+
+Our low memory PEFT method, k-LST, presents a generalization of the original LST by extracting backbone features from a k-sized window. The side network queries these features using cross-attention. k-LST converges faster and achieves higher accuracy than LST while keeping a low memory footprint. This presents a significant step in closing the performance gap of memory efficient PEFT methods.
+
+In addition to our new PEFT methods, we used modified prompts during fine-tuning with different PEFT methods and measured an improvement in performance metrics without any downsides. As a result, we recommend SiVA for high-accuracy fine-tuning and k-LST with prompts for low-memory fine-tuning.
+
+\subsection{Future Work}
+As future work, we recommend testing larger models with various architectures on more benchmarks to better understand our methods' performance benefits. Additionally, SiVA and k-LST can be combined together or with different PEFT methods to achieve further performance benefits. Both SiVA and k-LST are model agnostic, so testing domains other than NLP and non-transformer models remains a promising direction for future research.
+
+For SiVA specifically, the \(W_r\) matrix could be represented in lower precision for higher efficiency. QLoRA's 4-bit quantization \cite{dettmers2023qlora} could be adapted for use with SiVA in order to produce highly accessible, quantized LLMs with better accuracy.
+
+k-LST remains a fruitful research direction for future research. Further work can be done by experimenting with weight sharing and techniques similar to the original LST's LayerDrop to lower computational and memory costs. Additionally, pretraining the side network jointly with the backbone could further close the performance gap. Pretraining could enable the side network to learn how to use backbone features efficiently in a general context before it is fine-tuned for a specific use case.
+
+For prompting, experimenting with different prompts could prove to be beneficial. In particular, an automatic prompt generation pipeline can be incorporated as in LM-BFF \cite{prompt}.
